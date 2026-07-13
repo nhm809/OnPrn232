@@ -1,0 +1,850 @@
+<title>Ôn thi PRN232 — Q1 API + Q2 MVC</title>
+<style>
+  :root {
+    --bg: #faf8f3;
+    --surface: #ffffff;
+    --surface-2: #f2efe6;
+    --ink: #1c2029;
+    --ink-dim: #565c6b;
+    --border: #ddd6c4;
+    --accent: #b5791a;
+    --accent-ink: #7a5211;
+    --ok: #2f7d6b;
+    --ok-bg: #e4f1ec;
+    --warn: #b5791a;
+    --warn-bg: #faf0da;
+    --danger: #b8503f;
+    --danger-bg: #fbeae6;
+    --code-bg: #21262f;
+    --code-ink: #dfe3ea;
+    --code-accent: #e8b455;
+    --code-accent-2: #7ec9b9;
+    --shadow: 0 1px 2px rgba(30, 24, 8, 0.06), 0 6px 20px rgba(30, 24, 8, 0.05);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #11151c;
+    --surface: #161c25;
+    --surface-2: #1c232e;
+    --ink: #e7e5df;
+    --ink-dim: #9aa1b0;
+    --border: #2b3341;
+    --accent: #e8b455;
+    --accent-ink: #f2cb84;
+    --ok: #6fbfa9;
+    --ok-bg: #17251f;
+    --warn: #e8b455;
+    --warn-bg: #241d10;
+    --danger: #e08d78;
+    --danger-bg: #271613;
+    --code-bg: #0b0e13;
+    --code-ink: #dfe3ea;
+    --code-accent: #e8b455;
+    --code-accent-2: #7ec9b9;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #11151c;
+      --surface: #161c25;
+      --surface-2: #1c232e;
+      --ink: #e7e5df;
+      --ink-dim: #9aa1b0;
+      --border: #2b3341;
+      --accent: #e8b455;
+      --accent-ink: #f2cb84;
+      --ok: #6fbfa9;
+      --ok-bg: #17251f;
+      --warn: #e8b455;
+      --warn-bg: #241d10;
+      --danger: #e08d78;
+      --danger-bg: #271613;
+      --code-bg: #0b0e13;
+      --code-ink: #dfe3ea;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", "URW Palladio L", Georgia, serif;
+    font-weight: 600;
+    text-wrap: balance;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  code, pre, .mono, .toc-num, .tag, .kbd {
+    font-family: "SF Mono", "Cascadia Code", "Consolas", "Roboto Mono", ui-monospace, monospace;
+  }
+
+  a { color: var(--accent-ink); }
+
+  ::selection { background: var(--accent); color: #191204; }
+
+  /* ---------- Shell layout ---------- */
+  .shell {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    max-width: 1240px;
+    margin: 0 auto;
+  }
+
+  .toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 28px;
+    border-right: 1px solid var(--border);
+  }
+
+  .toc-brand {
+    font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    margin-bottom: 4px;
+  }
+
+  .toc-brand .mono {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--ink-dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  .toc-list {
+    list-style: none;
+    margin: 24px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .toc-list a {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    text-decoration: none;
+    color: var(--ink-dim);
+    font-size: 0.86rem;
+    padding: 7px 10px;
+    border-radius: 6px;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .toc-list a:hover { background: var(--surface-2); color: var(--ink); }
+  .toc-list a.active { background: var(--surface-2); color: var(--accent-ink); font-weight: 600; }
+
+  .toc-num {
+    font-size: 0.72rem;
+    color: var(--accent);
+    opacity: 0.8;
+    min-width: 1.4em;
+  }
+
+  .toc-theme {
+    margin-top: 28px;
+    display: flex;
+    gap: 6px;
+  }
+
+  .toc-theme button {
+    flex: 1;
+    font-family: inherit;
+    font-size: 0.75rem;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-dim);
+    cursor: pointer;
+  }
+
+  .toc-theme button.active { border-color: var(--accent); color: var(--accent-ink); }
+
+  main {
+    padding: 48px 56px 120px;
+    min-width: 0;
+  }
+
+  header.hero {
+    margin-bottom: 56px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .eyebrow {
+    font-size: 0.74rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 14px;
+    font-weight: 600;
+  }
+
+  h1.title {
+    font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+    line-height: 1.15;
+    margin-bottom: 14px;
+  }
+
+  .hero p.lede {
+    max-width: 62ch;
+    color: var(--ink-dim);
+    font-size: 1.05rem;
+    margin: 0;
+  }
+
+  section.block { margin-bottom: 64px; scroll-margin-top: 24px; }
+
+  section.block > h2 {
+    font-size: 1.5rem;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  section.block > h2 .toc-num { font-size: 1rem; }
+
+  section.block > .subtitle {
+    color: var(--ink-dim);
+    font-size: 0.95rem;
+    margin: 0 0 24px;
+    max-width: 68ch;
+  }
+
+  h3.sub {
+    font-size: 1.12rem;
+    margin: 32px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  h3.sub:first-child { margin-top: 0; }
+
+  p { max-width: 72ch; }
+
+  /* ---------- Priority tags ---------- */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .tag.must { background: var(--danger-bg); color: var(--danger); }
+  .tag.good { background: var(--warn-bg); color: var(--warn); }
+  .tag.hand { background: var(--ok-bg); color: var(--ok); }
+
+  /* ---------- Cards / grid ---------- */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+
+  .card h4 {
+    font-size: 0.98rem;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .card p { font-size: 0.9rem; color: var(--ink-dim); margin: 0; max-width: none; }
+
+  /* ---------- Code blocks ---------- */
+  pre.code {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    border-radius: 10px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.84rem;
+    line-height: 1.6;
+    margin: 12px 0 20px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  pre.code .c1 { color: var(--code-accent); }
+  pre.code .c2 { color: var(--code-accent-2); }
+  pre.code .cm { color: #7a8394; font-style: italic; }
+
+  code.inline {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 5px;
+    font-size: 0.86em;
+  }
+
+  /* ---------- Callouts ---------- */
+  .callout {
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    border: 1px solid transparent;
+    display: flex;
+    gap: 12px;
+  }
+
+  .callout .mark {
+    font-family: ui-serif, Georgia, serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    line-height: 1.5;
+  }
+
+  .callout .body p { margin: 0 0 6px; font-size: 0.92rem; max-width: none; }
+  .callout .body p:last-child { margin-bottom: 0; }
+  .callout .body strong { color: var(--ink); }
+
+  .callout.danger { background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
+  .callout.danger .mark { color: var(--danger); }
+  .callout.warn { background: var(--warn-bg); border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+  .callout.warn .mark { color: var(--warn); }
+  .callout.ok { background: var(--ok-bg); border-color: color-mix(in srgb, var(--ok) 30%, transparent); }
+  .callout.ok .mark { color: var(--ok); }
+
+  /* ---------- Table ---------- */
+  .table-wrap { overflow-x: auto; margin: 16px 0 20px; border-radius: 10px; border: 1px solid var(--border); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.88rem; background: var(--surface); }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { font-family: ui-serif, Georgia, serif; font-weight: 600; color: var(--ink-dim); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; background: var(--surface-2); }
+  tr:last-child td { border-bottom: none; }
+  td code.inline { white-space: nowrap; }
+
+  /* ---------- Checklist ---------- */
+  .checklist { list-style: none; margin: 16px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .checklist li {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 0.93rem;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .checklist input[type="checkbox"] {
+    margin-top: 3px;
+    width: 16px; height: 16px;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+  }
+  .checklist li:has(input:checked) { opacity: 0.55; text-decoration: line-through; }
+
+  /* ---------- Steps ---------- */
+  .steps { counter-reset: step; margin: 20px 0; padding: 0; list-style: none; }
+  .steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 4px 0 20px 40px;
+    border-left: 2px solid var(--border);
+    margin-left: 14px;
+  }
+  .steps li:last-child { border-left-color: transparent; padding-bottom: 0; }
+  .steps li::before {
+    content: counter(step);
+    font-family: "SF Mono", Consolas, monospace;
+    font-weight: 700;
+    font-size: 0.78rem;
+    position: absolute;
+    left: -15px;
+    top: 0;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .steps h4 { font-size: 0.98rem; margin: 0 0 4px; }
+  .steps p { margin: 0; font-size: 0.9rem; color: var(--ink-dim); }
+
+  footer.pagefoot {
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--ink-dim);
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: 1fr; }
+    .toc { position: relative; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 32px 22px 100px; }
+  }
+</style>
+
+<div class="shell">
+  <nav class="toc">
+    <div class="toc-brand">Ôn thi PRN232
+      <span class="mono">Q1 API · Q2 MVC/Razor</span>
+    </div>
+    <ul class="toc-list" id="tocList">
+      <li><a href="#overview"><span class="toc-num">00</span>Tổng quan đề thi</a></li>
+      <li><a href="#webapi"><span class="toc-num">01</span>ASP.NET Core Web API</a></li>
+      <li><a href="#efcore"><span class="toc-num">02</span>EF Core &amp; quan hệ dữ liệu</a></li>
+      <li><a href="#linq"><span class="toc-num">03</span>LINQ cheat sheet</a></li>
+      <li><a href="#mvc"><span class="toc-num">04</span>MVC / Razor</a></li>
+      <li><a href="#http"><span class="toc-num">05</span>HTTP status &amp; JSON</a></li>
+      <li><a href="#handskills"><span class="toc-num">06</span>Kỹ năng thao tác tay</a></li>
+      <li><a href="#traps"><span class="toc-num">07</span>Bẫy hay gặp</a></li>
+      <li><a href="#workflow"><span class="toc-num">08</span>Quy trình chuẩn lúc thi</a></li>
+      <li><a href="#checklist"><span class="toc-num">09</span>Checklist ôn tập</a></li>
+    </ul>
+    <div class="toc-theme">
+      <button id="btnLight" type="button">Sáng</button>
+      <button id="btnDark" type="button">Tối</button>
+      <button id="btnAuto" type="button" class="active">Tự động</button>
+    </div>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <p class="eyebrow">Tài liệu tự ôn tập · rút ra từ buổi luyện tập thực chiến</p>
+      <h1 class="title">Những gì cần vững để làm tốt bài thi PRN232</h1>
+      <p class="lede">Đề thi có dạng 2 project độc lập — <strong>Q1 xây Web API</strong> (EF Core + SQL Server), <strong>Q2 xây MVC/Razor</strong> gọi sang Q1 qua HTTP. Tài liệu này gom lại kiến thức nền tảng cần vững, kỹ năng thao tác tay, và toàn bộ lỗi thật đã gặp trong lúc luyện tập.</p>
+    </header>
+
+    <section class="block" id="overview">
+      <h2><span class="toc-num">00</span>Tổng quan đề thi</h2>
+      <p class="subtitle">Nắm được hình dạng chung của đề trước khi học sâu từng phần.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <h4>Q1 — Web API <span class="tag must">Bắt buộc</span></h4>
+          <p>4 endpoint tự viết theo yêu cầu đề (GET danh sách, GET lọc nâng cao, POST tạo mới, DELETE), cộng thêm một số "Provided APIs" — API có sẵn mô tả trong đề, bạn phải tự cài đặt luôn vì solution không có sẵn code. Dữ liệu lấy từ SQL Server qua EF Core.</p>
+        </div>
+        <div class="card">
+          <h4>Q2 — MVC/Razor <span class="tag must">Bắt buộc</span></h4>
+          <p>1–2 trang Razor, KHÔNG được đọc DB trực tiếp — chỉ được gọi sang Q1 qua <code class="inline">HttpClient</code>. Có thể phải dùng 1 class tiện ích có sẵn (kiểu <code class="inline">Utilities.GetAbsoluteUrl</code>) để ghép URL, không được tự ghép chuỗi tuỳ ý.</p>
+        </div>
+      </div>
+
+      <div class="callout ok">
+        <div class="mark">✓</div>
+        <div class="body">
+          <p><strong>Điểm mấu chốt:</strong> Q1 và Q2 là 2 process độc lập, chạy song song lúc test. Q1 phải chạy đúng trước và đứng vững một mình (test bằng Swagger) rồi mới ráp Q2 vào — đừng code cả hai cùng lúc, sẽ không biết lỗi nằm ở đâu.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="webapi">
+      <h2><span class="toc-num">01</span>ASP.NET Core Web API <span class="tag must">Bắt buộc</span></h2>
+      <p class="subtitle">Nền tảng để viết đúng 4 endpoint của Q1.</p>
+
+      <h3 class="sub">Controller tối giản, đúng route</h3>
+      <pre class="code"><span class="cm">// Route đầy đủ trên từng action nếu URL không cùng 1 tiền tố</span>
+[<span class="c1">ApiController</span>]
+[<span class="c1">Route</span>(<span class="c2">"api"</span>)]
+<span class="c1">public class</span> HotelController : ControllerBase
+{
+    <span class="c1">private readonly</span> AppDbContext _context;
+    <span class="c1">public</span> HotelController(AppDbContext context) => _context = context;
+
+    [<span class="c1">HttpGet</span>(<span class="c2">"roomtypes"</span>)]        <span class="cm">// GET /api/roomtypes</span>
+    [<span class="c1">HttpGet</span>(<span class="c2">"filter-rooms"</span>)]     <span class="cm">// GET /api/filter-rooms</span>
+    [<span class="c1">HttpPost</span>(<span class="c2">"rooms"</span>)]          <span class="cm">// POST /api/rooms</span>
+    [<span class="c1">HttpDelete</span>(<span class="c2">"rooms/{roomId}"</span>)] <span class="cm">// DELETE /api/rooms/{roomId}</span>
+}</pre>
+
+      <h3 class="sub">Dependency Injection &amp; Program.cs</h3>
+      <p>Controller không tự tạo <code class="inline">DbContext</code> — nó được "tiêm" (inject) qua constructor. Muốn việc tiêm này hoạt động, phải đăng ký trong <code class="inline">Program.cs</code>:</p>
+      <pre class="code"><span class="c1">builder</span>.Services.AddControllers();
+<span class="c1">builder</span>.Services.AddDbContext&lt;AppDbContext&gt;(options =&gt;
+    options.UseSqlServer(<span class="c1">builder</span>.Configuration.GetConnectionString(<span class="c2">"MyCnn"</span>)));
+<span class="c1">builder</span>.Services.AddSwaggerGen();
+<span class="cm">// ...</span>
+<span class="c1">app</span>.UseSwagger();       <span class="cm">// KHÔNG bọc trong if (IsDevelopment()) — xem mục 07</span>
+<span class="c1">app</span>.UseSwaggerUI();
+<span class="c1">app</span>.MapControllers();</pre>
+
+      <h3 class="sub">DI Lifetime cần phân biệt</h3>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Lifetime</th><th>Ý nghĩa</th><th>Dùng cho</th></tr>
+          <tr><td><code class="inline">AddScoped</code></td><td>1 instance / 1 HTTP request</td><td><code class="inline">DbContext</code>, Service, Repository (mặc định nên dùng cái này)</td></tr>
+          <tr><td><code class="inline">AddSingleton</code></td><td>1 instance duy nhất cho cả app</td><td>Cấu hình đọc 1 lần, cache tĩnh</td></tr>
+          <tr><td><code class="inline">AddTransient</code></td><td>Instance mới mỗi lần được yêu cầu</td><td>Hiếm dùng trong bài thi dạng này</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="block" id="efcore">
+      <h2><span class="toc-num">02</span>EF Core &amp; quan hệ dữ liệu <span class="tag must">Bắt buộc</span></h2>
+      <p class="subtitle">Phần hay gây rối nhất: phân biệt N-N thuần và N-N có dữ liệu phụ.</p>
+
+      <h3 class="sub">Database First: Scaffold-DbContext</h3>
+      <p>Đề cho sẵn DB → dùng <code class="inline">dotnet ef dbcontext scaffold</code> để tự sinh Model + DbContext, không viết tay. Lệnh chuẩn (xem chi tiết ở mục 06):</p>
+      <pre class="code">dotnet ef dbcontext scaffold <span class="c2">"Server=.\SQLEXPRESS;Database=TenDB;User Id=...;Password=...;TrustServerCertificate=True;"</span> Microsoft.EntityFrameworkCore.SqlServer -o Models --context-dir Data -c AppDbContext -d <span class="c1">--no-onconfiguring</span> -f</pre>
+
+      <h3 class="sub">Hai kiểu quan hệ N-N — khác nhau hoàn toàn khi viết LINQ</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h4>N-N thuần <span class="tag good">Nên biết</span></h4>
+          <p>Bảng trung gian chỉ có 2 khóa ngoại, không cột phụ (vd <code class="inline">RoomTypeServices</code>). EF Core Scaffold <strong>tự nuốt mất</strong> bảng này, sinh ra <code class="inline">ICollection</code> 2 chiều trực tiếp. Include chỉ cần 1 cấp: <code class="inline">.Include(rt =&gt; rt.Services)</code>.</p>
+        </div>
+        <div class="card">
+          <h4>N-N có dữ liệu phụ <span class="tag good">Nên biết</span></h4>
+          <p>Bảng trung gian có thêm cột (vd <code class="inline">NightCount</code> trong <code class="inline">BookingDetails</code>). EF Core giữ nguyên thành entity riêng, khóa phức hợp. Include phải xuyên 2 cấp bằng <code class="inline">.ThenInclude()</code>.</p>
+        </div>
+      </div>
+
+      <h3 class="sub">Include = JOIN thật, nhưng có 2 điều cần nhớ</h3>
+      <div class="callout warn">
+        <div class="mark">!</div>
+        <div class="body">
+          <p><strong>Không gọi Include → navigation property không lỗi, chỉ rỗng.</strong> Code chạy được, không exception, nhưng field sai (0 hoặc rỗng) — lỗi rất khó phát hiện nếu không để ý.</p>
+          <p><strong>Include không dùng để lọc.</strong> Muốn lọc theo quan hệ N-N, dùng <code class="inline">.Where(x =&gt; x.Services.Any(s =&gt; s.ServiceId == id))</code>, không phải Include.</p>
+        </div>
+      </div>
+
+      <h3 class="sub">Composite key &amp; Unique index (nếu tự viết OnModelCreating)</h3>
+      <pre class="code"><span class="c1">modelBuilder</span>.Entity&lt;BookingDetail&gt;()
+    .HasKey(bd =&gt; <span class="c1">new</span> { bd.BookingId, bd.RoomId });
+
+<span class="c1">modelBuilder</span>.Entity&lt;Room&gt;()
+    .HasIndex(r =&gt; r.RoomNumber)
+    .IsUnique();</pre>
+    </section>
+
+    <section class="block" id="linq">
+      <h2><span class="toc-num">03</span>LINQ cheat sheet <span class="tag must">Bắt buộc</span></h2>
+      <p class="subtitle">7 pattern này phủ gần hết mọi API kiểu "danh sách + lọc + tính toán".</p>
+
+      <h3 class="sub">Lọc động theo tham số tuỳ chọn</h3>
+      <pre class="code"><span class="c1">var</span> query = _context.Rooms.AsQueryable();
+<span class="c1">if</span> (!<span class="c1">string</span>.IsNullOrWhiteSpace(status))
+    query = query.Where(r =&gt; r.Status.ToLower() == status.ToLower());
+<span class="c1">if</span> (minPrice.HasValue)
+    query = query.Where(r =&gt; r.BasePrice &gt;= minPrice.Value);
+<span class="c1">var</span> result = <span class="c1">await</span> query.ToListAsync();</pre>
+
+      <h3 class="sub">Đếm / Tổng trên navigation property</h3>
+      <pre class="code">ServiceCount = rt.Services.Count                          <span class="cm">// đếm N-N</span>
+TotalNights  = r.BookingDetails.Sum(bd =&gt; bd.NightCount)  <span class="cm">// tổng 1-N</span></pre>
+
+      <h3 class="sub">Lấy bản ghi "mới nhất" theo 1 mốc thời gian</h3>
+      <pre class="code">CurrentGuest = r.BookingDetails
+    .OrderByDescending(bd =&gt; bd.Booking!.CheckInDate)
+    .Select(bd =&gt; bd.Booking!.Guest!.FullName)
+    .FirstOrDefault() ?? <span class="c2">"No Guest"</span>;</pre>
+
+      <h3 class="sub">Kiểm tra tồn tại / trùng lặp</h3>
+      <pre class="code"><span class="c1">bool</span> exists = <span class="c1">await</span> _context.Rooms.AnyAsync(r =&gt; r.RoomNumber == dto.RoomNumber);</pre>
+
+      <h3 class="sub">Group + tính tổng theo nhóm</h3>
+      <pre class="code"><span class="c1">var</span> grouped = <span class="c1">await</span> _context.BookingDetails
+    .GroupBy(bd =&gt; bd.RoomId)
+    .Select(g =&gt; <span class="c1">new</span> { RoomId = g.Key, TotalNights = g.Sum(x =&gt; x.NightCount) })
+    .ToListAsync();</pre>
+
+      <h3 class="sub">Chiếu (Select) thẳng sang DTO — nên dùng khi có thể</h3>
+      <pre class="code"><span class="c1">var</span> dto = <span class="c1">await</span> _context.RoomTypes
+    .Select(rt =&gt; <span class="c1">new</span> RoomTypeSummaryDto
+    {
+        RoomTypeId = rt.RoomTypeId,
+        ServiceCount = rt.Services.Count
+    })
+    .ToListAsync();</pre>
+      <p>Dịch được thẳng sang SQL, không load dư dữ liệu. Nhưng logic phức tạp nhiều tầng (như <code class="inline">CurrentGuest</code> ở trên) thường phải <code class="inline">ToListAsync()</code> trước rồi mới <code class="inline">.Select()</code> lần 2 trên memory (LINQ to Objects) — EF Core khó dịch biểu thức lồng quá sâu sang SQL.</p>
+
+      <h3 class="sub">Phân trang</h3>
+      <pre class="code"><span class="c1">var</span> paged = <span class="c1">await</span> query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();</pre>
+    </section>
+
+    <section class="block" id="mvc">
+      <h2><span class="toc-num">04</span>MVC / Razor <span class="tag must">Bắt buộc</span></h2>
+      <p class="subtitle">Q2 chỉ là lớp hiển thị — không đọc DB, chỉ gọi HTTP sang Q1.</p>
+
+      <h3 class="sub">Controller gọi API rồi trả View</h3>
+      <pre class="code">[<span class="c1">Route</span>(<span class="c2">"RoomType"</span>)]
+<span class="c1">public class</span> RoomTypeController : Controller   <span class="cm">// Controller, KHÔNG PHẢI ControllerBase</span>
+{
+    <span class="c1">private readonly</span> HttpClient _httpClient;
+
+    [<span class="c1">HttpGet</span>(<span class="c2">""</span>)]
+    <span class="c1">public async</span> Task&lt;IActionResult&gt; Index()
+    {
+        <span class="c1">var</span> url = Utilities.GetAbsoluteUrl(<span class="c2">"api/roomtypes"</span>);
+        <span class="c1">var</span> data = <span class="c1">await</span> _httpClient.GetFromJsonAsync&lt;List&lt;RoomTypeViewModel&gt;&gt;(url) ?? <span class="c1">new</span>();
+        <span class="c1">return</span> View(data);
+    }
+}</pre>
+
+      <div class="callout warn">
+        <div class="mark">!</div>
+        <div class="body">
+          <p><strong><code class="inline">GetFromJsonAsync</code> / <code class="inline">ReadFromJsonAsync</code> đã có sẵn</strong> trong shared framework của <code class="inline">Microsoft.NET.Sdk.Web</code> — không cần add NuGet <code class="inline">System.Net.Http.Json</code> riêng (đã kiểm chứng thật).</p>
+        </div>
+      </div>
+
+      <h3 class="sub">Razor view — id HTML phải khớp chính xác đề yêu cầu</h3>
+      <pre class="code">@model List&lt;RoomTypeViewModel&gt;
+@foreach (<span class="c1">var</span> rt <span class="c1">in</span> Model)
+{
+    &lt;td id=<span class="c2">"td_@(rt.TypeName)_@(rt.RoomTypeId)"</span>&gt;@rt.TypeName&lt;/td&gt;
+}</pre>
+      <p>Đề thường quy định id theo pattern kiểu <code class="inline">td_{TenTruong}_{Id}</code> — sai 1 ký tự cũng có thể bị 0 điểm phần đó vì tool chấm tự động tìm theo id chính xác.</p>
+    </section>
+
+    <section class="block" id="http">
+      <h2><span class="toc-num">05</span>HTTP status &amp; JSON <span class="tag must">Bắt buộc</span></h2>
+
+      <div class="table-wrap">
+        <table>
+          <tr><th>Tình huống</th><th>Status</th><th>Cách trả</th></tr>
+          <tr><td>Thành công, có dữ liệu</td><td>200</td><td><code class="inline">Ok(data)</code></td></tr>
+          <tr><td>Tạo mới thành công</td><td>201</td><td><code class="inline">StatusCode(201, entity)</code></td></tr>
+          <tr><td>Xoá thành công</td><td>204</td><td><code class="inline">NoContent()</code></td></tr>
+          <tr><td>Input sai / vi phạm rule</td><td>400</td><td><code class="inline">BadRequest(message)</code></td></tr>
+          <tr><td>Không tìm thấy</td><td>404</td><td><code class="inline">NotFound(message)</code></td></tr>
+        </table>
+      </div>
+
+      <h3 class="sub">Tên property → camelCase tự động</h3>
+      <p>C# viết <code class="inline">RoomTypeId</code> (PascalCase) → JSON serializer mặc định tự đổi thành <code class="inline">"roomTypeId"</code>. Chỉ cần đặt tên property đúng chuẩn C# (hậu tố <code class="inline">Id</code>, không phải <code class="inline">ID</code>) là JSON tự đúng, không cần cấu hình gì thêm.</p>
+
+      <h3 class="sub">Hỗ trợ cả JSON và XML nếu đề yêu cầu</h3>
+      <pre class="code"><span class="c1">builder</span>.Services.AddControllers()
+    .AddXmlSerializerFormatters();  <span class="cm">// thêm 1 dòng là đủ, theo Accept header</span></pre>
+    </section>
+
+    <section class="block" id="handskills">
+      <h2><span class="toc-num">06</span>Kỹ năng thao tác tay <span class="tag hand">Kỹ năng tay</span></h2>
+      <p class="subtitle">Đây là phần khác biệt lớn nhất giữa "biết lý thuyết" và "làm được trong phòng thi" — luyện tay cho quen, đừng để mất thời gian thi vì lỗi vặt.</p>
+
+      <h3 class="sub">Xử lý DB không xoá được</h3>
+      <pre class="code"><span class="c1">USE</span> master;
+<span class="c1">GO</span>
+<span class="c1">IF</span> DB_ID(<span class="c2">'TenDB'</span>) <span class="c1">IS NOT NULL</span>
+<span class="c1">BEGIN</span>
+    <span class="c1">ALTER DATABASE</span> TenDB <span class="c1">SET SINGLE_USER WITH ROLLBACK IMMEDIATE</span>;
+    <span class="c1">DROP DATABASE</span> TenDB;
+<span class="c1">END</span>
+<span class="c1">GO</span></pre>
+      <p>Nguyên nhân hay gặp: 1 tab Query khác trong SSMS (hoặc chính cửa sổ đang chạy script) vẫn đang "đứng trong" DB đó. <code class="inline">USE master;</code> ở đầu script + <code class="inline">SET SINGLE_USER WITH ROLLBACK IMMEDIATE</code> giải quyết 95% trường hợp.</p>
+
+      <h3 class="sub">Chạy script nhanh bằng sqlcmd</h3>
+      <pre class="code">sqlcmd -S <span class="c2">".\SQLEXPRESS"</span> -U user -P pass -i <span class="c2">"C:\duong\dan\script.sql"</span></pre>
+      <p>Dùng dấu <code class="inline">\</code> kiểu Windows cho đường dẫn file — dùng <code class="inline">/</code> sẽ bị lỗi "Access denied".</p>
+
+      <h3 class="sub">Chọn đúng Server= theo máy đang dùng</h3>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Loại instance</th><th>Giá trị Server=</th></tr>
+          <tr><td>LocalDB (không cần start service)</td><td><code class="inline">(localdb)\mssqllocaldb</code></td></tr>
+          <tr><td>SQL Server Express</td><td><code class="inline">.\SQLEXPRESS</code></td></tr>
+          <tr><td>SQL Server instance mặc định</td><td><code class="inline">.</code></td></tr>
+        </table>
+      </div>
+
+      <h3 class="sub">PMC vs CLI khi Scaffold — không được trộn cú pháp</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h4>Package Manager Console</h4>
+          <p><code class="inline">Scaffold-DbContext "..." Microsoft.EntityFrameworkCore.SqlServer -OutputDir Models -Context AppDbContext -DataAnnotations -NoOnConfiguring -Force</code></p>
+        </div>
+        <div class="card">
+          <h4>Terminal (dotnet ef)</h4>
+          <p><code class="inline">dotnet ef dbcontext scaffold "..." Microsoft.EntityFrameworkCore.SqlServer -o Models -c AppDbContext -d --no-onconfiguring -f</code></p>
+        </div>
+      </div>
+      <p>PMC dùng PascalCase 1 gạch ngang; CLI dùng kebab-case 2 gạch ngang. Trộn 2 kiểu → lỗi <code class="inline">Unrecognized option</code>.</p>
+
+      <h3 class="sub">Verify bằng file publish, không tin F5</h3>
+      <pre class="code">dotnet publish -c Release -o ./Q1_MaSV
+<span class="c1">cd</span> Q1_MaSV
+dotnet Q1.dll --urls http://localhost:5100
+<span class="cm"># mở /swagger — phải load được, đúng như lúc thầy sẽ kiểm tra</span></pre>
+    </section>
+
+    <section class="block" id="traps">
+      <h2><span class="toc-num">07</span>Bẫy hay gặp <span class="tag must">Từ buổi luyện tập thật</span></h2>
+      <p class="subtitle">Toàn bộ mục này là lỗi thật đã xảy ra và đã kiểm chứng cách sửa — không phải lý thuyết suông.</p>
+
+      <div class="callout danger">
+        <div class="mark">✕</div>
+        <div class="body">
+          <p><strong>Swagger biến mất sau khi publish.</strong> Nguyên nhân: <code class="inline">UseSwagger()</code> bị bọc trong <code class="inline">if (app.Environment.IsDevelopment())</code>. Chạy file <code class="inline">.dll</code> publish trực tiếp mặc định là Production, không phải Development.</p>
+          <p><strong>Sửa:</strong> gọi <code class="inline">UseSwagger()</code> / <code class="inline">UseSwaggerUI()</code> không điều kiện.</p>
+        </div>
+      </div>
+
+      <div class="callout danger">
+        <div class="mark">✕</div>
+        <div class="body">
+          <p><strong><code class="inline">CreatedAtAction(nameof(CreateRoom), ...)</code> tự trỏ vào chính nó.</strong> Vì không có action GET-theo-id nào để trỏ tới, header <code class="inline">Location</code> sinh ra sai/vô nghĩa.</p>
+          <p><strong>Sửa:</strong> dùng <code class="inline">return StatusCode(201, entity);</code> đơn giản.</p>
+        </div>
+      </div>
+
+      <div class="callout danger">
+        <div class="mark">✕</div>
+        <div class="body">
+          <p><strong><code class="inline">appsettings.Development.json</code> không được nạp</strong> khi chạy bản publish (vì <code class="inline">ASPNETCORE_ENVIRONMENT</code> mặc định là Production).</p>
+          <p><strong>Sửa:</strong> connection string thật phải nằm trong <code class="inline">appsettings.json</code> gốc.</p>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <div class="mark">!</div>
+        <div class="body">
+          <p><strong><code class="inline">dotnet add package ... -Version x</code> bị bỏ qua âm thầm</strong> — flag đúng là <code class="inline">-v</code> hoặc <code class="inline">--version</code>, viết hoa <code class="inline">V</code> khiến CLI không báo lỗi rõ ràng, chỉ in trang help và không set version.</p>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <div class="mark">!</div>
+        <div class="body">
+          <p><strong>Quên <code class="inline">--no-onconfiguring</code> khi scaffold</strong> → EF nhúng cứng connection string thật (kể cả password) vào code sinh ra trong <code class="inline">OnConfiguring()</code> — vi phạm thẳng yêu cầu "connection string phải chỉnh được qua appsettings.json".</p>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <div class="mark">!</div>
+        <div class="body">
+          <p><strong>Namespace rỗng làm lỗi build.</strong> <code class="inline">@using Q2.Models</code> trong <code class="inline">_ViewImports.cshtml</code> sẽ lỗi nếu <code class="inline">Models/</code> chưa có file .cs nào — namespace C# chỉ "tồn tại" khi có ít nhất 1 class bên trong.</p>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <div class="mark">!</div>
+        <div class="body">
+          <p><strong><code class="inline">dotnet ef</code> cần project build được trước</strong> mới chạy scaffold được. Nếu <code class="inline">Program.cs</code> đã lỡ tham chiếu 1 DbContext chưa tồn tại, phải comment lại phần đó, scaffold xong mới mở lại.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="workflow">
+      <h2><span class="toc-num">08</span>Quy trình chuẩn lúc thi</h2>
+
+      <ol class="steps">
+        <li>
+          <h4>Chạy script SQL đề cho</h4>
+          <p>Thêm <code class="inline">USE master;</code> + <code class="inline">SET SINGLE_USER</code> trước <code class="inline">DROP DATABASE</code> nếu script gốc chưa có.</p>
+        </li>
+        <li>
+          <h4>Sửa <code class="inline">Q1/appsettings.json</code></h4>
+          <p>Key JSON phải đúng tên đề yêu cầu (thường là <code class="inline">ConnectionStrings:MyCnn</code>). Chỉ đổi phần <code class="inline">Database=</code>.</p>
+        </li>
+        <li>
+          <h4>Scaffold DB (nếu làm Database First)</h4>
+          <p>Nhớ <code class="inline">--no-onconfiguring</code>, đúng flag PMC hoặc CLI, không trộn.</p>
+        </li>
+        <li>
+          <h4>Viết Controller/Service cho Q1, test bằng Swagger</h4>
+          <p>Test xong hết 4 endpoint + provided APIs trước khi đụng vào Q2.</p>
+        </li>
+        <li>
+          <h4>Chạy Q1 đúng port mà Q2 đang trỏ tới</h4>
+          <p>Xem <code class="inline">Q2/appsettings.json</code> mục <code class="inline">GivenAPIBaseUrl</code> — Q1 phải chạy đúng port đó (không phải port ngẫu nhiên trong launchSettings).</p>
+        </li>
+        <li>
+          <h4>Viết Controller/View cho Q2, test song song với Q1 đang chạy</h4>
+          <p>Cả 2 project chạy cùng lúc (2 terminal riêng, hoặc Multiple Startup Projects trong Visual Studio).</p>
+        </li>
+        <li>
+          <h4>Publish cả 2, verify lại bằng file .dll</h4>
+          <p><code class="inline">dotnet publish -c Release -o ./Q1_MaSV</code> rồi chạy trực tiếp — đừng chỉ tin F5.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="block" id="checklist">
+      <h2><span class="toc-num">09</span>Checklist ôn tập trước khi thi</h2>
+      <ul class="checklist">
+        <li><input type="checkbox" /> Viết được Controller API trả JSON đúng status code (200/201/204/400/404) không cần tra cứu</li>
+        <li><input type="checkbox" /> Phân biệt được N-N thuần và N-N có dữ liệu phụ chỉ bằng cách nhìn bảng trung gian</li>
+        <li><input type="checkbox" /> Viết được <code class="inline">Include</code>/<code class="inline">ThenInclude</code> đúng cấu trúc không cần thử sai</li>
+        <li><input type="checkbox" /> Nhớ 7 pattern LINQ ở mục 03 mà không cần mở tài liệu</li>
+        <li><input type="checkbox" /> Tự sửa được lỗi "Cannot drop database ... currently in use" trong dưới 1 phút</li>
+        <li><input type="checkbox" /> Phân biệt được flag PMC và CLI khi scaffold, không lẫn lộn</li>
+        <li><input type="checkbox" /> Biết chạy Q1/Q2 song song đúng port, không nhầm</li>
+        <li><input type="checkbox" /> Luôn test lại bằng file publish trước khi nộp, không tin F5</li>
+        <li><input type="checkbox" /> Viết được Razor view với id HTML khớp chính xác pattern đề cho</li>
+        <li><input type="checkbox" /> Biết dùng <code class="inline">Utilities.GetAbsoluteUrl</code> (hoặc tương đương) thay vì tự ghép URL</li>
+      </ul>
+    </section>
+
+    <footer class="pagefoot">
+      Tổng hợp từ quá trình luyện tập thực tế — mọi lệnh, lỗi và cách sửa trong tài liệu này đều đã được chạy thử và kiểm chứng, không phải suy đoán lý thuyết.
+    </footer>
+  </main>
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var btnLight = document.getElementById('btnLight');
+    var btnDark = document.getElementById('btnDark');
+    var btnAuto = document.getElementById('btnAuto');
+
+    function setTheme(mode) {
+      if (mode === 'auto') { root.removeAttribute('data-theme'); }
+      else { root.setAttribute('data-theme', mode); }
+      [btnLight, btnDark, btnAuto].forEach(function (b) { b.classList.remove('active'); });
+      (mode === 'light' ? btnLight : mode === 'dark' ? btnDark : btnAuto).classList.add('active');
+      try { localStorage.setItem('pe-theme', mode); } catch (e) {}
+    }
+
+    btnLight.addEventListener('click', function () { setTheme('light'); });
+    btnDark.addEventListener('click', function () { setTheme('dark'); });
+    btnAuto.addEventListener('click', function () { setTheme('auto'); });
+
+    try {
+      var saved = localStorage.getItem('pe-theme');
+      if (saved) setTheme(saved);
+    } catch (e) {}
+
+    var links = Array.prototype.slice.call(document.querySelectorAll('.toc-list a'));
+    var sections = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+
+    function onScroll() {
+      var pos = window.scrollY + 120;
+      var current = sections[0];
+      sections.forEach(function (sec) { if (sec && sec.offsetTop <= pos) current = sec; });
+      links.forEach(function (a) {
+        a.classList.toggle('active', current && a.getAttribute('href') === '#' + current.id);
+      });
+    }
+    document.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+</script>
