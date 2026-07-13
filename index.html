@@ -591,37 +591,383 @@ TotalNights  = r.BookingDetails.Sum(bd =&gt; bd.NightCount)  <span class="cm">//
 
     <section class="block" id="mvc">
       <h2><span class="toc-num">04</span>MVC / Razor <span class="tag must">Bắt buộc</span></h2>
-      <p class="subtitle">Q2 chỉ là lớp hiển thị — không đọc DB, chỉ gọi HTTP sang Q1.</p>
+      <p class="subtitle">Q2 chỉ là lớp hiển thị — không đọc DB trực tiếp, chỉ gọi HTTP sang Q1 để lấy dữ liệu rồi render HTML.</p>
 
-      <h3 class="sub">Controller gọi API rồi trả View</h3>
-      <pre class="code">[<span class="c1">Route</span>(<span class="c2">"RoomType"</span>)]
-<span class="c1">public class</span> RoomTypeController : Controller   <span class="cm">// Controller, KHÔNG PHẢI ControllerBase</span>
+      <h3 class="sub">MVC là gì? — 3 thành phần</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h4>Model (ViewModel)</h4>
+          <p>Class C# định nghĩa cấu trúc dữ liệu. Trong Q2, đây là ViewModel — class chứa dữ liệu nhận từ API, đặt trong <code class="inline">Q2/Models/</code></p>
+        </div>
+        <div class="card">
+          <h4>View (.cshtml)</h4>
+          <p>File HTML + Razor syntax. <strong>Chỉ hiển thị</strong>, không chứa logic xử lý. Đặt trong <code class="inline">Q2/Views/{Controller}/</code></p>
+        </div>
+        <div class="card">
+          <h4>Controller</h4>
+          <p><strong>Điều phối:</strong> nhận request từ user → gọi API (Q1) → lấy dữ liệu → đưa vào View để render HTML trả về</p>
+        </div>
+      </div>
+
+      <h3 class="sub">Luồng request trong bài thi</h3>
+      <ol class="steps">
+        <li>
+          <h4>User vào trang <code class="inline">/RoomType</code></h4>
+          <p>Trình duyệt gửi GET request đến Q2 (MVC).</p>
+        </li>
+        <li>
+          <h4><code class="inline">RoomTypeController.Index()</code> được gọi</h4>
+          <p>ASP.NET Core dựa vào URL để tìm đúng Controller + Action.</p>
+        </li>
+        <li>
+          <h4>Controller gọi API sang Q1 bằng HttpClient</h4>
+          <p><code class="inline">Utilities.GetAbsoluteUrl("/api/roomtypes")</code> → <code class="inline">GetFromJsonAsync&lt;List&lt;...&gt;&gt;(url)</code></p>
+        </li>
+        <li>
+          <h4>Q1 trả về JSON, Controller parse thành object C#</h4>
+          <p><code class="inline">GetFromJsonAsync</code> tự động deserialize JSON → <code class="inline">List&lt;RoomTypeVm&gt;</code></p>
+        </li>
+        <li>
+          <h4>Controller gọi <code class="inline">return View(list)</code></h4>
+          <p>Truyền data vào View — file <code class="inline">.cshtml</code> cùng tên action sẽ được render.</p>
+        </li>
+        <li>
+          <h4>View dùng Razor để render HTML</h4>
+          <p><code class="inline">@foreach</code>, <code class="inline">@if</code>, <code class="inline">@Model.Property</code> — HTML cuối cùng trả về trình duyệt.</p>
+        </li>
+      </ol>
+
+      <div class="callout ok">
+        <div class="mark">✓</div>
+        <div class="body">
+          <p><strong>Q2 không truy cập database trực tiếp.</strong> Mọi dữ liệu đều gọi qua API của Q1 bằng <code class="inline">HttpClient</code>. Q1 và Q2 là 2 process chạy song song.</p>
+        </div>
+      </div>
+
+      <!-- ===== RAZOR SYNTAX ===== -->
+      <h3 class="sub">Cú pháp Razor cơ bản — ký tự <code class="inline">@</code></h3>
+
+      <p><strong>Hiển thị giá trị:</strong> <code class="inline">@biểuthức</code> — giá trị C# tự động HTML-encode (an toàn XSS).</p>
+      <pre class="code">&lt;p&gt;Xin chào, <span class="c1">@</span>Model.FullName&lt;/p&gt;
+&lt;p&gt;Hôm nay là <span class="c1">@</span>DateTime.Now.ToString(<span class="c2">"dd/MM/yyyy"</span>)&lt;/p&gt;</pre>
+
+      <p><strong>Khối lệnh C#:</strong> <code class="inline">@{ ... }</code> — viết nhiều dòng C#, khai báo biến.</p>
+      <pre class="code"><span class="c1">@</span>{
+    <span class="c1">var</span> message = <span class="c2">"Hello"</span>;
+    <span class="c1">var</span> count = Model.Count;
+    ViewData[<span class="c2">"Title"</span>] = <span class="c2">"Danh sách"</span>;
+}</pre>
+
+      <p><strong>Điều kiện:</strong> <code class="inline">@if / else</code></p>
+      <pre class="code"><span class="c1">@if</span> (Model.Count &gt; 0)
 {
-    <span class="c1">private readonly</span> HttpClient _httpClient;
+    &lt;p&gt;Có <span class="c1">@</span>Model.Count kết quả&lt;/p&gt;
+}
+<span class="c1">else</span>
+{
+    &lt;p&gt;Không có dữ liệu&lt;/p&gt;
+}</pre>
 
-    [<span class="c1">HttpGet</span>(<span class="c2">""</span>)]
+      <p><strong>Vòng lặp:</strong> <code class="inline">@foreach</code> — dùng nhiều nhất trong thi, hiển thị bảng dữ liệu.</p>
+      <pre class="code">&lt;table&gt;
+  &lt;tr&gt;&lt;th&gt;Tên&lt;/th&gt;&lt;th&gt;Giá&lt;/th&gt;&lt;/tr&gt;
+  <span class="c1">@foreach</span> (<span class="c1">var</span> item <span class="c1">in</span> Model)
+  {
+      &lt;tr&gt;
+          &lt;td&gt;<span class="c1">@</span>item.Name&lt;/td&gt;
+          &lt;td&gt;<span class="c1">@</span>item.Price.ToString(<span class="c2">"N0"</span>)&lt;/td&gt;
+      &lt;/tr&gt;
+  }
+&lt;/table&gt;</pre>
+
+      <p><strong>Khai báo Model cho View:</strong> <code class="inline">@model</code> — luôn ở dòng đầu tiên của file <code class="inline">.cshtml</code>.</p>
+      <pre class="code"><span class="c1">@model</span> List&lt;RoomTypeVm&gt;
+
+<span class="cm">// Sau khi khai báo, "Model" = biến có kiểu List&lt;RoomTypeVm&gt;</span>
+&lt;p&gt;Tổng: <span class="c1">@</span>Model.Count loại phòng&lt;/p&gt;</pre>
+
+      <div class="callout danger">
+        <div class="mark">✕</div>
+        <div class="body">
+          <p><strong><code class="inline">@model</code> (chữ thường) ≠ <code class="inline">@Model</code> (chữ hoa)</strong>. <code class="inline">@model</code> = khai báo kiểu (1 lần, dòng đầu). <code class="inline">@Model</code> = truy cập dữ liệu (dùng xuyên suốt file). Nhầm 2 cái này là lỗi build!</p>
+        </div>
+      </div>
+
+      <p><strong>Các cú pháp khác thường gặp:</strong></p>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Cú pháp</th><th>Ý nghĩa</th><th>Ví dụ</th></tr>
+          <tr><td><code class="inline">@ViewData["Title"]</code></td><td>Truyền dữ liệu nhỏ từ Controller/Layout</td><td>Đặt tiêu đề trang</td></tr>
+          <tr><td><code class="inline">@ViewBag.Search</code></td><td>Dynamic property, dùng giữ giá trị form</td><td>Giữ giá trị ô tìm kiếm sau khi search</td></tr>
+          <tr><td><code class="inline">@(biểu thức phức tạp)</code></td><td>Dấu ngoặc khi biểu thức lẫn với HTML</td><td><code class="inline">@(ViewBag.Status == "Active" ? "selected" : "")</code></td></tr>
+          <tr><td><code class="inline">@using Q2.Models</code></td><td>Import namespace</td><td>Thường đặt trong _ViewImports.cshtml</td></tr>
+          <tr><td><code class="inline">@@</code></td><td>In ký tự @ literal</td><td>Email: user@@mail.com</td></tr>
+        </table>
+      </div>
+
+      <!-- ===== CONTROLLER CHI TIẾT ===== -->
+      <h3 class="sub">Controller — cấu trúc và routing</h3>
+      <pre class="code"><span class="c1">using</span> System.Net.Http.Json;
+<span class="c1">using</span> Q2.Models;
+<span class="c1">using</span> Microsoft.AspNetCore.Mvc;
+
+<span class="c1">namespace</span> Q2.Controllers;
+
+<span class="c1">public class</span> RoomTypeController : Controller
+{
+    <span class="c1">private readonly</span> HttpClient _http;
+
+    <span class="c1">public</span> RoomTypeController(HttpClient http) =&gt; _http = http;
+
+    <span class="cm">// GET: /RoomType hoặc /RoomType/Index</span>
     <span class="c1">public async</span> Task&lt;IActionResult&gt; Index()
     {
-        <span class="c1">var</span> url = Utilities.GetAbsoluteUrl(<span class="c2">"api/roomtypes"</span>);
-        <span class="c1">var</span> data = <span class="c1">await</span> _httpClient.GetFromJsonAsync&lt;List&lt;RoomTypeViewModel&gt;&gt;(url) ?? <span class="c1">new</span>();
-        <span class="c1">return</span> View(data);
+        <span class="c1">var</span> url = Utilities.GetAbsoluteUrl(<span class="c2">"/api/roomtypes"</span>);
+        <span class="c1">var</span> list = <span class="c1">await</span> _http.GetFromJsonAsync&lt;List&lt;RoomTypeVm&gt;&gt;(url) ?? <span class="c1">new</span>();
+        <span class="c1">return</span> View(list);
     }
 }</pre>
+
+      <p><strong>Quy tắc routing</strong> — URL tự động map vào Controller + Action:</p>
+      <div class="table-wrap">
+        <table>
+          <tr><th>URL trình duyệt</th><th>Controller</th><th>Action</th></tr>
+          <tr><td><code class="inline">/RoomType</code></td><td>RoomTypeController</td><td>Index()</td></tr>
+          <tr><td><code class="inline">/RoomType/Index</code></td><td>RoomTypeController</td><td>Index()</td></tr>
+          <tr><td><code class="inline">/RoomType/Analyze</code></td><td>RoomTypeController</td><td>Analyze()</td></tr>
+          <tr><td><code class="inline">/RoomType/Delete/5</code></td><td>RoomTypeController</td><td>Delete(int id)</td></tr>
+          <tr><td><code class="inline">/</code></td><td>HomeController</td><td>Index()</td></tr>
+        </table>
+      </div>
+      <p>Pattern mặc định: <code class="inline">{controller=Home}/{action=Index}/{id?}</code> — đã setup sẵn trong <code class="inline">Program.cs</code>.</p>
+
+      <p><strong>Các kiểu return phổ biến:</strong></p>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Lệnh</th><th>Làm gì</th><th>Khi nào dùng</th></tr>
+          <tr><td><code class="inline">return View(model);</code></td><td>Render file .cshtml cùng tên action</td><td>Hiển thị trang HTML</td></tr>
+          <tr><td><code class="inline">return View("TenView", model);</code></td><td>Render file .cshtml tên khác</td><td>Dùng view khác với tên action</td></tr>
+          <tr><td><code class="inline">return RedirectToAction("Index");</code></td><td>Redirect về action khác</td><td>Sau khi POST (delete, create)</td></tr>
+        </table>
+      </div>
+
+      <p><strong>Nhận tham số từ URL/form:</strong></p>
+      <pre class="code"><span class="cm">// Từ URL: /RoomType/Delete/5 → id = 5</span>
+<span class="c1">public async</span> Task&lt;IActionResult&gt; Delete(<span class="c1">int</span> id) { ... }
+
+<span class="cm">// Từ query string: /RoomType?search=deluxe&amp;minPrice=100</span>
+<span class="c1">public async</span> Task&lt;IActionResult&gt; Index(<span class="c1">string</span>? search, <span class="c1">decimal</span>? minPrice) { ... }
+
+<span class="cm">// Từ form POST (name của input khớp với tên parameter)</span>
+[HttpPost]
+<span class="c1">public async</span> Task&lt;IActionResult&gt; Create(RoomCreateVm model) { ... }</pre>
 
       <div class="callout warn">
         <div class="mark">!</div>
         <div class="body">
-          <p><strong><code class="inline">GetFromJsonAsync</code> / <code class="inline">ReadFromJsonAsync</code> đã có sẵn</strong> trong shared framework của <code class="inline">Microsoft.NET.Sdk.Web</code> — không cần add NuGet <code class="inline">System.Net.Http.Json</code> riêng (đã kiểm chứng thật).</p>
+          <p><strong>Tên Controller PHẢI kết thúc bằng "Controller"</strong> (vd: <code class="inline">RoomTypeController</code>). URL sẽ tự động bỏ phần "Controller" đi → <code class="inline">/RoomType</code>.</p>
         </div>
       </div>
 
-      <h3 class="sub">Razor view — id HTML phải khớp chính xác đề yêu cầu</h3>
-      <pre class="code">@model List&lt;RoomTypeViewModel&gt;
-@foreach (<span class="c1">var</span> rt <span class="c1">in</span> Model)
+      <!-- ===== VIEW CHI TIẾT ===== -->
+      <h3 class="sub">View — quy tắc đặt file .cshtml</h3>
+      <pre class="code">Q2/Views/
+  RoomType/              <span class="cm">← tên Controller (bỏ chữ "Controller")</span>
+    Index.cshtml         <span class="cm">← khớp với action Index()</span>
+    Analyze.cshtml       <span class="cm">← khớp với action Analyze()</span>
+  Shared/
+    _Layout.cshtml       <span class="cm">← layout dùng chung (header, footer, CSS)</span>
+  _ViewImports.cshtml    <span class="cm">← @using chung cho mọi view</span>
+  _ViewStart.cshtml      <span class="cm">← chỉ định layout mặc định</span></pre>
+
+      <p><strong>Ví dụ View hoàn chỉnh:</strong> Index.cshtml hiển thị bảng dữ liệu</p>
+      <pre class="code"><span class="c1">@model</span> List&lt;RoomTypeVm&gt;
+<span class="c1">@</span>{
+    ViewData[<span class="c2">"Title"</span>] = <span class="c2">"Danh sách loại phòng"</span>;
+}
+
+&lt;h2&gt;Danh sách loại phòng&lt;/h2&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Tên loại&lt;/th&gt;
+      &lt;th&gt;Mô tả&lt;/th&gt;
+      &lt;th&gt;Giá&lt;/th&gt;
+      &lt;th&gt;Số dịch vụ&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    <span class="c1">@foreach</span> (<span class="c1">var</span> rt <span class="c1">in</span> Model)
+    {
+      &lt;tr&gt;
+        &lt;td&gt;<span class="c1">@</span>rt.TypeName&lt;/td&gt;
+        &lt;td&gt;<span class="c1">@</span>rt.Description&lt;/td&gt;
+        &lt;td&gt;<span class="c1">@</span>rt.BasePrice.ToString(<span class="c2">"N0"</span>)&lt;/td&gt;
+        &lt;td&gt;<span class="c1">@</span>rt.ServiceCount&lt;/td&gt;
+      &lt;/tr&gt;
+    }
+  &lt;/tbody&gt;
+&lt;/table&gt;</pre>
+
+      <p><strong>Layout</strong> (<code class="inline">_Layout.cshtml</code>) — khung chứa chung, <code class="inline">@RenderBody()</code> là chỗ nội dung trang con được chèn vào:</p>
+      <pre class="code">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;title&gt;<span class="c1">@</span>ViewData[<span class="c2">"Title"</span>] - Q2&lt;/title&gt;
+    &lt;link rel=<span class="c2">"stylesheet"</span> href=<span class="c2">"~/css/site.css"</span> /&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class=<span class="c2">"container"</span>&gt;
+        <span class="c1">@</span>RenderBody()   <span class="cm">&lt;!-- nội dung Index.cshtml sẽ vào đây --&gt;</span>
+    &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre>
+
+      <div class="callout danger">
+        <div class="mark">✕</div>
+        <div class="body">
+          <p><strong>View PHẢI đặt đúng thư mục:</strong> <code class="inline">Views/{Controller}/{Action}.cshtml</code>. Đặt sai là 404 — ASP.NET Core không tìm được view.</p>
+        </div>
+      </div>
+
+      <!-- ===== GỌI API TỪ Q2 ===== -->
+      <h3 class="sub">Q2 gọi API của Q1 — HttpClient</h3>
+      <p>Trong bài thi, Q2 gọi sang Q1 bằng <code class="inline">HttpClient</code>. URL được tạo bằng <code class="inline">Utilities.GetAbsoluteUrl()</code> — helper của trường.</p>
+
+      <p><strong>GET — Lấy danh sách:</strong></p>
+      <pre class="code"><span class="c1">var</span> url = Utilities.GetAbsoluteUrl(<span class="c2">"/api/roomtypes"</span>);
+<span class="c1">var</span> list = <span class="c1">await</span> _http.GetFromJsonAsync&lt;List&lt;RoomTypeVm&gt;&gt;(url);
+<span class="c1">return</span> View(list ?? <span class="c1">new</span> List&lt;RoomTypeVm&gt;());</pre>
+
+      <p><strong>GET — Với query string (tìm kiếm/lọc):</strong></p>
+      <pre class="code"><span class="c1">var</span> url = Utilities.GetAbsoluteUrl(
+    <span class="c2">$"/api/filter-rooms?status={status}&amp;minPrice={minPrice}"</span>);
+<span class="c1">var</span> rooms = <span class="c1">await</span> _http.GetFromJsonAsync&lt;List&lt;RoomVm&gt;&gt;(url);</pre>
+
+      <p><strong>POST — Gửi dữ liệu tạo mới:</strong></p>
+      <pre class="code"><span class="c1">var</span> url = Utilities.GetAbsoluteUrl(<span class="c2">"/api/rooms"</span>);
+<span class="c1">var</span> response = <span class="c1">await</span> _http.PostAsJsonAsync(url, newRoom);
+<span class="c1">if</span> (response.IsSuccessStatusCode)
+    <span class="c1">return</span> RedirectToAction(<span class="c2">"Index"</span>);
+
+<span class="cm">// Nếu lỗi, đọc thông báo lỗi từ API</span>
+<span class="c1">var</span> error = <span class="c1">await</span> response.Content.ReadAsStringAsync();
+ViewBag.Error = error;
+<span class="c1">return</span> View(model);</pre>
+
+      <p><strong>DELETE — Xoá:</strong></p>
+      <pre class="code"><span class="c1">var</span> url = Utilities.GetAbsoluteUrl(<span class="c2">$"/api/rooms/{id}"</span>);
+<span class="c1">var</span> response = <span class="c1">await</span> _http.DeleteAsync(url);
+<span class="c1">return</span> RedirectToAction(<span class="c2">"Index"</span>);</pre>
+
+      <div class="table-wrap">
+        <table>
+          <tr><th>HTTP method</th><th>C# method</th><th>Mục đích</th></tr>
+          <tr><td>GET</td><td><code class="inline">GetFromJsonAsync&lt;T&gt;(url)</code></td><td>Lấy dữ liệu, tự parse JSON → object</td></tr>
+          <tr><td>POST</td><td><code class="inline">PostAsJsonAsync(url, obj)</code></td><td>Gửi dữ liệu tạo mới</td></tr>
+          <tr><td>PUT</td><td><code class="inline">PutAsJsonAsync(url, obj)</code></td><td>Cập nhật</td></tr>
+          <tr><td>DELETE</td><td><code class="inline">DeleteAsync(url)</code></td><td>Xoá</td></tr>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <div class="mark">!</div>
+        <div class="body">
+          <p><strong><code class="inline">GetFromJsonAsync</code> / <code class="inline">PostAsJsonAsync</code> đã có sẵn</strong> trong shared framework của <code class="inline">Microsoft.NET.Sdk.Web</code> — không cần add NuGet <code class="inline">System.Net.Http.Json</code> riêng (đã kiểm chứng thật).</p>
+        </div>
+      </div>
+
+      <div class="callout danger">
+        <div class="mark">✕</div>
+        <div class="body">
+          <p><strong>LUÔN dùng <code class="inline">Utilities.GetAbsoluteUrl(path)</code></strong> để tạo URL. KHÔNG tự ghép chuỗi như <code class="inline">"http://localhost:5100" + path</code> hay dùng <code class="inline">UriBuilder</code>. Vi phạm = mất điểm!</p>
+        </div>
+      </div>
+
+      <!-- ===== FORM TÌM KIẾM ===== -->
+      <h3 class="sub">Form tìm kiếm / lọc dữ liệu</h3>
+      <p>Đề thi thường yêu cầu trang có form tìm kiếm/lọc. Form gửi GET request về chính trang đó.</p>
+
+      <p><strong>View — Form tìm kiếm:</strong></p>
+      <pre class="code"><span class="c1">@model</span> List&lt;RoomVm&gt;
+
+&lt;h2&gt;Tìm kiếm phòng&lt;/h2&gt;
+
+&lt;form method=<span class="c2">"get"</span>&gt;
+  &lt;label&gt;Trạng thái:&lt;/label&gt;
+  &lt;select name=<span class="c2">"status"</span>&gt;
+    &lt;option value=<span class="c2">""</span>&gt;-- Tất cả --&lt;/option&gt;
+    &lt;option value=<span class="c2">"Available"</span>
+      <span class="c1">@(</span>ViewBag.Status == <span class="c2">"Available"</span> ? <span class="c2">"selected"</span> : <span class="c2">""</span><span class="c1">)</span>&gt;Available&lt;/option&gt;
+    &lt;option value=<span class="c2">"Occupied"</span>
+      <span class="c1">@(</span>ViewBag.Status == <span class="c2">"Occupied"</span> ? <span class="c2">"selected"</span> : <span class="c2">""</span><span class="c1">)</span>&gt;Occupied&lt;/option&gt;
+  &lt;/select&gt;
+
+  &lt;label&gt;Giá tối thiểu:&lt;/label&gt;
+  &lt;input type=<span class="c2">"number"</span> name=<span class="c2">"minPrice"</span> value=<span class="c2">"@ViewBag.MinPrice"</span> /&gt;
+
+  &lt;button type=<span class="c2">"submit"</span>&gt;Tìm kiếm&lt;/button&gt;
+&lt;/form&gt;</pre>
+
+      <p><strong>Controller — Nhận tham số từ form:</strong></p>
+      <pre class="code"><span class="c1">public async</span> Task&lt;IActionResult&gt; Index(
+    <span class="c1">string</span>? status, <span class="c1">decimal</span>? minPrice)
 {
-    &lt;td id=<span class="c2">"td_@(rt.TypeName)_@(rt.RoomTypeId)"</span>&gt;@rt.TypeName&lt;/td&gt;
+    <span class="cm">// Xây query string gửi sang Q1</span>
+    <span class="c1">var</span> qs = <span class="c2">""</span>;
+    <span class="c1">if</span> (!<span class="c1">string</span>.IsNullOrEmpty(status))
+        qs += <span class="c2">$"&amp;status={status}"</span>;
+    <span class="c1">if</span> (minPrice.HasValue)
+        qs += <span class="c2">$"&amp;minPrice={minPrice}"</span>;
+    <span class="c1">if</span> (qs.Length &gt; 0) qs = <span class="c2">"?"</span> + qs.Substring(1);
+
+    <span class="c1">var</span> url = Utilities.GetAbsoluteUrl(<span class="c2">$"/api/filter-rooms{qs}"</span>);
+    <span class="c1">var</span> list = <span class="c1">await</span> _http.GetFromJsonAsync&lt;List&lt;RoomVm&gt;&gt;(url)
+              ?? <span class="c1">new</span>();
+
+    <span class="cm">// Giữ lại giá trị đã chọn trên form</span>
+    ViewBag.Status = status;
+    ViewBag.MinPrice = minPrice;
+
+    <span class="c1">return</span> View(list);
+}</pre>
+
+      <div class="callout ok">
+        <div class="mark">✓</div>
+        <div class="body">
+          <p><strong>Form dùng <code class="inline">method="get"</code></strong> → tham số đi vào URL query string → Controller nhận qua parameter name khớp. Không cần <code class="inline">[HttpPost]</code>. Dùng <code class="inline">ViewBag</code> để giữ giá trị đã chọn sau khi search.</p>
+        </div>
+      </div>
+
+      <!-- ===== RAZOR VIEW ID ===== -->
+      <h3 class="sub">Razor — id HTML phải khớp chính xác đề yêu cầu</h3>
+      <pre class="code"><span class="c1">@foreach</span> (<span class="c1">var</span> rt <span class="c1">in</span> Model)
+{
+    &lt;td id=<span class="c2">"td_@(rt.TypeName)_@(rt.RoomTypeId)"</span>&gt;<span class="c1">@</span>rt.TypeName&lt;/td&gt;
 }</pre>
       <p>Đề thường quy định id theo pattern kiểu <code class="inline">td_{TenTruong}_{Id}</code> — sai 1 ký tự cũng có thể bị 0 điểm phần đó vì tool chấm tự động tìm theo id chính xác.</p>
+
+      <!-- ===== MẪU Q2 HOÀN CHỈNH ===== -->
+      <h3 class="sub">Tổng hợp — 4 bước làm Q2 trong thi</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h4>Bước 1: Tạo ViewModel <span class="tag hand">Q2/Models/</span></h4>
+          <p>Class C# khớp với JSON mà API trả về. Tên property phải khớp (camelCase JSON → PascalCase C# tự map).</p>
+        </div>
+        <div class="card">
+          <h4>Bước 2: Tạo Controller <span class="tag hand">Q2/Controllers/</span></h4>
+          <p>Kế thừa <code class="inline">Controller</code>, inject <code class="inline">HttpClient</code>, dùng <code class="inline">Utilities.GetAbsoluteUrl()</code>, trả <code class="inline">View(data)</code>.</p>
+        </div>
+        <div class="card">
+          <h4>Bước 3: Tạo View <span class="tag hand">Q2/Views/{Controller}/</span></h4>
+          <p>File <code class="inline">.cshtml</code>. Dòng đầu <code class="inline">@model KiểuDữLiệu</code>, dùng <code class="inline">@foreach</code> để render.</p>
+        </div>
+        <div class="card">
+          <h4>Bước 4: Mở comment <span class="tag hand">_ViewImports</span></h4>
+          <p>Mở <code class="inline">@using Q2.Models</code> trong <code class="inline">_ViewImports.cshtml</code> (chỉ sau khi đã có ít nhất 1 file trong Models/).</p>
+        </div>
+      </div>
     </section>
 
     <section class="block" id="http">
