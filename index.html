@@ -1259,17 +1259,59 @@ ViewBag.Error = error;
 
     <section class="block" id="http">
       <h2><span class="toc-num">05</span>HTTP status &amp; JSON <span class="tag must">Bắt buộc</span></h2>
+      <p class="subtitle">Đề dạng Q1/Q2 không có authentication — thực tế chỉ cần vững đúng 5 mã dưới đây, không cần học dàn trải hết bảng status code chuẩn HTTP.</p>
 
       <div class="table-wrap">
         <table>
           <tr><th>Tình huống</th><th>Status</th><th>Cách trả</th></tr>
-          <tr><td>Thành công, có dữ liệu</td><td>200</td><td><code class="inline">Ok(data)</code></td></tr>
-          <tr><td>Tạo mới thành công</td><td>201</td><td><code class="inline">StatusCode(201, entity)</code></td></tr>
-          <tr><td>Xoá thành công</td><td>204</td><td><code class="inline">NoContent()</code></td></tr>
-          <tr><td>Input sai / vi phạm rule</td><td>400</td><td><code class="inline">BadRequest(message)</code></td></tr>
-          <tr><td>Không tìm thấy</td><td>404</td><td><code class="inline">NotFound(message)</code></td></tr>
+          <tr><td>GET thành công (danh sách / chi tiết / filter)</td><td>200</td><td><code class="inline">Ok(data)</code></td></tr>
+          <tr><td>POST tạo mới thành công</td><td>201</td><td><code class="inline">StatusCode(201, entity)</code></td></tr>
+          <tr><td>DELETE thành công</td><td>204</td><td><code class="inline">NoContent()</code></td></tr>
+          <tr><td>Input sai / vi phạm business rule</td><td>400</td><td><code class="inline">BadRequest(message)</code></td></tr>
+          <tr><td>GET/DELETE theo id không tồn tại</td><td>404</td><td><code class="inline">NotFound(message)</code></td></tr>
         </table>
       </div>
+
+      <p><strong>Ghi nhớ theo verb:</strong> GET → 200/404 · POST → 201/400 · DELETE → 204/404. Đúng 5 mã này phủ hết mọi test case của đề dạng này.</p>
+
+      <div class="callout ok">
+        <div class="mark">✓</div>
+        <div class="body">
+          <p><strong>Không cần quan tâm cho loại đề này:</strong> 401/403 (không có authentication/authorization) · 409 Conflict (trùng dữ liệu vẫn xử lý bằng 400 qua <code class="inline">BusinessRuleException</code>, không cần phân biệt riêng) · 500 (không tự trả tay, để mặc định).</p>
+        </div>
+      </div>
+
+      <h3 class="sub">Trả trực tiếp trong Controller</h3>
+      <pre class="code">[HttpGet(<span class="c2">"{id}"</span>)]
+<span class="c1">public async</span> Task&lt;IActionResult&gt; GetById(<span class="c1">int</span> id)
+{
+    <span class="c1">var</span> item = <span class="c1">await</span> _service.GetByIdAsync(id);
+    <span class="c1">if</span> (item == <span class="c1">null</span>) <span class="c1">return</span> NotFound(<span class="c2">$"Room {id} not found"</span>);   <span class="cm">// 404</span>
+    <span class="c1">return</span> Ok(item);                                                        <span class="cm">// 200</span>
+}
+
+[HttpPost]
+<span class="c1">public async</span> Task&lt;IActionResult&gt; Create(CreateRoomDto dto)
+{
+    <span class="c1">bool</span> exists = <span class="c1">await</span> _context.Rooms.AnyAsync(r =&gt; r.RoomNumber == dto.RoomNumber);
+    <span class="c1">if</span> (exists) <span class="c1">return</span> BadRequest(<span class="c2">"Room number already exists"</span>);  <span class="cm">// 400</span>
+    <span class="c1">var</span> room = <span class="c1">await</span> _service.CreateAsync(dto);
+    <span class="c1">return</span> StatusCode(<span class="c2">201</span>, room);                                        <span class="cm">// 201</span>
+}
+
+[HttpDelete(<span class="c2">"{id}"</span>)]
+<span class="c1">public async</span> Task&lt;IActionResult&gt; Delete(<span class="c1">int</span> id)
+{
+    <span class="c1">var</span> deleted = <span class="c1">await</span> _service.DeleteAsync(id);
+    <span class="c1">if</span> (!deleted) <span class="c1">return</span> NotFound();     <span class="cm">// 404</span>
+    <span class="c1">return</span> NoContent();                     <span class="cm">// 204</span>
+}</pre>
+
+      <h3 class="sub">Hoặc throw exception, để Filter tự convert (gọn hơn)</h3>
+      <p>Base template đã có sẵn <code class="inline">ApiExceptionFilter</code> — Service chỉ cần <code class="inline">throw</code>, Controller không cần <code class="inline">if/return</code> thủ công:</p>
+      <pre class="code"><span class="c1">throw new</span> NotFoundException(<span class="c2">$"Room {roomId} was not found"</span>);      <span class="cm">// filter tự convert → 404</span>
+<span class="c1">throw new</span> BusinessRuleException(<span class="c2">"Room number already exists"</span>);   <span class="cm">// filter tự convert → 400</span></pre>
+      <p>Cách này thường gọn hơn vì logic kiểm tra nằm trong Service, Controller chỉ gọi và filter tự lo phần response — không lặp lại <code class="inline">if/return</code> ở từng action.</p>
 
       <h3 class="sub">Tên property → camelCase tự động</h3>
       <p>C# viết <code class="inline">RoomTypeId</code> (PascalCase) → JSON serializer mặc định tự đổi thành <code class="inline">"roomTypeId"</code>. Chỉ cần đặt tên property đúng chuẩn C# (hậu tố <code class="inline">Id</code>, không phải <code class="inline">ID</code>) là JSON tự đúng, không cần cấu hình gì thêm.</p>
