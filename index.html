@@ -426,7 +426,8 @@
       <li><a href="#handskills"><span class="toc-num">06</span>Kỹ năng thao tác tay</a></li>
       <li><a href="#traps"><span class="toc-num">07</span>Bẫy hay gặp</a></li>
       <li><a href="#workflow"><span class="toc-num">08</span>Quy trình chuẩn lúc thi</a></li>
-      <li><a href="#checklist"><span class="toc-num">09</span>Checklist ôn tập</a></li>
+      <li><a href="#steps"><span class="toc-num">09</span>Các bước làm Q1 &amp; Q2</a></li>
+      <li><a href="#checklist"><span class="toc-num">10</span>Checklist ôn tập</a></li>
     </ul>
     <div class="toc-theme">
       <button id="btnLight" type="button">Sáng</button>
@@ -1462,8 +1463,214 @@ dotnet Q1.dll --urls http://localhost:5100
       </ol>
     </section>
 
+    <section class="block" id="steps">
+      <h2><span class="toc-num">09</span>Các bước làm Q1 &amp; Q2 <span class="tag must">Thực hành</span></h2>
+      <p class="subtitle">Q1 chỉ tóm tắt (chi tiết đã có ở mục 01-03). Q2 làm chi tiết từng bước — vì đây là phần hay bị lúng túng nhất khi thi.</p>
+
+      <h3 class="sub">Q1 — tóm tắt các bước</h3>
+      <ol class="steps">
+        <li>
+          <h4>Sửa connection string trong <code class="inline">appsettings.json</code></h4>
+          <p>Đúng key JSON đề yêu cầu, chỉ đổi phần <code class="inline">Database=</code>.</p>
+        </li>
+        <li>
+          <h4>Scaffold DB</h4>
+          <p>Sinh ra <code class="inline">Models/</code> (Entity) + <code class="inline">Data/</code> (DbContext). Nhớ <code class="inline">--no-onconfiguring</code>.</p>
+        </li>
+        <li>
+          <h4>Đọc đề, xác định response cần field gì</h4>
+          <p>Field nào không có sẵn trên Entity (vd <code class="inline">ServiceCount</code>, <code class="inline">TotalNights</code>, <code class="inline">CurrentGuest</code>) → cần 1 class response riêng để gói lại, đặt ở <code class="inline">Models/</code> hoặc <code class="inline">Dtos/</code> tuỳ bạn.</p>
+        </li>
+        <li>
+          <h4>Viết Interface + Service</h4>
+          <p>Không bắt buộc có Repository — Service gọi thẳng <code class="inline">DbContext</code> cũng được, đỡ tốn thời gian nếu đề không yêu cầu Repository pattern.</p>
+        </li>
+        <li>
+          <h4>Viết Controller</h4>
+          <p>Gọi Service, trả đúng status code theo bảng ở mục 05 (200/201/204/400/404).</p>
+        </li>
+        <li>
+          <h4>Đăng ký DI trong <code class="inline">Program.cs</code></h4>
+          <p><code class="inline">AddDbContext</code>, <code class="inline">AddScoped&lt;IXxxService, XxxService&gt;</code> cho từng Service mới tạo.</p>
+        </li>
+        <li>
+          <h4>Test bằng Swagger</h4>
+          <p>Test xong hết Q1 rồi mới chuyển sang Q2 — dễ xác định lỗi nằm ở đâu.</p>
+        </li>
+      </ol>
+
+      <h3 class="sub">Q2 — chi tiết từng bước</h3>
+
+      <p><strong>Bước 1 — Đọc <code class="inline">GivenAPIBaseUrl</code> từ appsettings.json:</strong></p>
+      <pre class="code">{
+  <span class="c2">"GivenAPIBaseUrl"</span>: <span class="c2">"http://localhost:5100"</span>
+}</pre>
+
+      <p><strong>Bước 2 — Khởi tạo Controller (constructor):</strong></p>
+      <pre class="code"><span class="c1">using</span> System.Net.Http.Json;
+<span class="c1">using</span> Q2.Models;
+<span class="c1">using</span> Microsoft.AspNetCore.Mvc;
+
+<span class="c1">namespace</span> Q2.Controllers;
+
+<span class="c1">public class</span> RoomTypeController : Controller
+{
+    <span class="c1">private readonly</span> HttpClient _httpClient;
+    <span class="c1">private readonly string</span> _baseUrl;
+
+    <span class="c1">public</span> RoomTypeController(IHttpClientFactory httpClientFactory, IConfiguration config)
+    {
+        _httpClient = httpClientFactory.CreateClient();
+        _baseUrl = config[<span class="c2">"GivenAPIBaseUrl"</span>]!;   <span class="cm">// đọc 1 lần, dùng lại nhiều action</span>
+    }
+}</pre>
+      <p><code class="inline">IHttpClientFactory</code> và <code class="inline">IConfiguration</code> được ASP.NET Core tự inject — chỉ cần có <code class="inline">builder.Services.AddHttpClient();</code> trong <code class="inline">Program.cs</code> (base template thường đã có sẵn).</p>
+
+      <p><strong>Bước 3 — Action <code class="inline">Index</code> (trang danh sách + filter):</strong></p>
+      <pre class="code"><span class="cm">// GET /RoomType?serviceId=2&amp;priceRange=budget</span>
+[HttpGet(<span class="c2">"/RoomType"</span>)]
+<span class="c1">public async</span> Task&lt;IActionResult&gt; Index(<span class="c1">int</span>? serviceId, <span class="c1">string</span>? priceRange)
+{
+    <span class="cm">// 1. Gọi API lấy danh sách service (đổ vào dropdown)</span>
+    <span class="c1">var</span> servicesUrl = _baseUrl + <span class="c2">"/api/services"</span>;
+    <span class="c1">var</span> allServices = <span class="c1">await</span> _httpClient.GetFromJsonAsync&lt;List&lt;ServiceViewModel&gt;&gt;(servicesUrl) ?? <span class="c1">new</span>();
+
+    <span class="cm">// 2. Xây query string cho API search — chỉ thêm tham số nào có giá trị</span>
+    <span class="c1">var</span> qs = <span class="c2">""</span>;
+    <span class="c1">if</span> (serviceId.HasValue &amp;&amp; serviceId.Value &gt; 0)
+        qs += (qs == <span class="c2">""</span> ? <span class="c2">"?"</span> : <span class="c2">"&amp;"</span>) + <span class="c2">"serviceId="</span> + serviceId.Value;
+    <span class="c1">if</span> (!<span class="c1">string</span>.IsNullOrEmpty(priceRange) &amp;&amp; priceRange != <span class="c2">"all"</span>)
+        qs += (qs == <span class="c2">""</span> ? <span class="c2">"?"</span> : <span class="c2">"&amp;"</span>) + <span class="c2">"priceRange="</span> + priceRange;
+
+    <span class="c1">var</span> searchUrl = _baseUrl + <span class="c2">"/api/roomtypes/search"</span> + qs;
+    <span class="c1">var</span> roomTypes = <span class="c1">await</span> _httpClient.GetFromJsonAsync&lt;List&lt;RoomTypeViewModel&gt;&gt;(searchUrl) ?? <span class="c1">new</span>();
+
+    <span class="cm">// 3. Gói vào 1 ViewModel để View vừa render bảng vừa giữ lại lựa chọn filter</span>
+    <span class="c1">var</span> vm = <span class="c1">new</span> RoomTypeIndexViewModel
+    {
+        AllServices = allServices,
+        RoomTypes = roomTypes,
+        SelectedServiceId = serviceId,
+        SelectedPriceRange = priceRange
+    };
+    <span class="c1">return</span> View(vm);
+}</pre>
+
+      <p><strong>Bước 4 — Action <code class="inline">Analyze</code> (trang chi tiết):</strong></p>
+      <pre class="code"><span class="cm">// GET /RoomType/Analyze/{roomTypeId}</span>
+[HttpGet(<span class="c2">"/RoomType/Analyze/{roomTypeId}"</span>)]
+<span class="c1">public async</span> Task&lt;IActionResult&gt; Analyze(<span class="c1">int</span> roomTypeId)
+{
+    <span class="c1">var</span> url = _baseUrl + <span class="c2">"/api/roomtypes/"</span> + roomTypeId;
+    <span class="c1">var</span> response = <span class="c1">await</span> _httpClient.GetAsync(url);
+
+    <span class="c1">if</span> (!response.IsSuccessStatusCode)
+        <span class="c1">return</span> NotFound();
+
+    <span class="c1">var</span> vm = <span class="c1">await</span> response.Content.ReadFromJsonAsync&lt;RoomTypeDetailViewModel&gt;();
+    <span class="c1">return</span> View(vm);
+}</pre>
+
+      <p><strong>Bước 5 — Tạo View <code class="inline">Index.cshtml</code></strong> (<code class="inline">Views/RoomType/Index.cshtml</code>) — form filter + bảng đúng id đề yêu cầu:</p>
+      <pre class="code"><span class="c1">@model</span> RoomTypeIndexViewModel
+<span class="c1">@</span>{ ViewData[<span class="c2">"Title"</span>] = <span class="c2">"Room Type Management"</span>; }
+
+&lt;h2&gt;Room Type Management&lt;/h2&gt;
+
+&lt;form method=<span class="c2">"get"</span> asp-action=<span class="c2">"Index"</span>&gt;
+  &lt;select id=<span class="c2">"sl_services"</span> name=<span class="c2">"serviceId"</span>&gt;
+    &lt;option id=<span class="c2">"op_0"</span> value=<span class="c2">""</span> selected=<span class="c2">"@(!Model.SelectedServiceId.HasValue)"</span>&gt;All services&lt;/option&gt;
+    <span class="c1">@foreach</span> (<span class="c1">var</span> s <span class="c1">in</span> Model.AllServices)
+    {
+        &lt;option id=<span class="c2">"op_@(s.ServiceId)"</span> value=<span class="c2">"@s.ServiceId"</span>
+          selected=<span class="c2">"@(Model.SelectedServiceId == s.ServiceId)"</span>&gt;<span class="c1">@</span>s.ServiceName&lt;/option&gt;
+    }
+  &lt;/select&gt;
+
+  &lt;select id=<span class="c2">"sl_priceRange"</span> name=<span class="c2">"priceRange"</span>&gt;
+    &lt;option value=<span class="c2">"all"</span> selected=<span class="c2">"@(string.IsNullOrEmpty(Model.SelectedPriceRange) || Model.SelectedPriceRange == "all")"</span>&gt;All prices&lt;/option&gt;
+    &lt;option value=<span class="c2">"budget"</span> selected=<span class="c2">"@(Model.SelectedPriceRange == "budget")"</span>&gt;Budget ( &amp;lt; 1M )&lt;/option&gt;
+    &lt;option value=<span class="c2">"premium"</span> selected=<span class="c2">"@(Model.SelectedPriceRange == "premium")"</span>&gt;Premium ( &amp;gt;= 1M )&lt;/option&gt;
+  &lt;/select&gt;
+
+  &lt;button id=<span class="c2">"bt_search"</span> type=<span class="c2">"submit"</span>&gt;Search&lt;/button&gt;
+&lt;/form&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;&lt;tr&gt;&lt;th&gt;Type Name&lt;/th&gt;&lt;th&gt;Base Price&lt;/th&gt;&lt;th&gt;Services&lt;/th&gt;&lt;th&gt;Action&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+  &lt;tbody&gt;
+    <span class="c1">@foreach</span> (<span class="c1">var</span> rt <span class="c1">in</span> Model.RoomTypes)
+    {
+      &lt;tr&gt;
+        &lt;td id=<span class="c2">"td_@(rt.TypeName)_@(rt.RoomTypeId)"</span>&gt;<span class="c1">@</span>rt.TypeName&lt;/td&gt;
+        &lt;td id=<span class="c2">"td_@(rt.BasePrice.ToString("0.00"))_@(rt.RoomTypeId)"</span>&gt;<span class="c1">@</span>rt.BasePrice.ToString(<span class="c2">"0.00"</span>)&lt;/td&gt;
+        &lt;td&gt;
+          <span class="c1">@foreach</span> (<span class="c1">var</span> s <span class="c1">in</span> rt.Services)
+          {
+              &lt;span id=<span class="c2">"span_@(s.ServiceName)_@(s.ServiceId)"</span>&gt;<span class="c1">@</span>s.ServiceName&lt;/span&gt;
+          }
+        &lt;/td&gt;
+        &lt;td&gt;&lt;a id=<span class="c2">"a_@(rt.RoomTypeId)"</span> href=<span class="c2">"/RoomType/Analyze/@rt.RoomTypeId"</span>&gt;Analyze Type&lt;/a&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+    }
+  &lt;/tbody&gt;
+&lt;/table&gt;</pre>
+
+      <p><strong>Bước 6 — Tạo View <code class="inline">Analyze.cshtml</code></strong> (<code class="inline">Views/RoomType/Analyze.cshtml</code>):</p>
+      <pre class="code"><span class="c1">@model</span> RoomTypeDetailViewModel
+<span class="c1">@</span>{ ViewData[<span class="c2">"Title"</span>] = <span class="c2">"Room Type Analysis"</span>; }
+
+&lt;h2&gt;Room Type Analysis&lt;/h2&gt;
+
+&lt;div&gt;
+  &lt;p&gt;Type ID: &lt;span id=<span class="c2">"span_@(Model.RoomTypeId)"</span>&gt;<span class="c1">@</span>Model.RoomTypeId&lt;/span&gt;&lt;/p&gt;
+  &lt;p&gt;Type Name: &lt;span id=<span class="c2">"span_@(Model.TypeName)"</span>&gt;<span class="c1">@</span>Model.TypeName&lt;/span&gt;&lt;/p&gt;
+  &lt;p&gt;Base Price: &lt;span id=<span class="c2">"span_@(Model.BasePrice.ToString("0.00"))"</span>&gt;<span class="c1">@</span>Model.BasePrice.ToString(<span class="c2">"0.00"</span>)&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;h3&gt;Room Inventory Details&lt;/h3&gt;
+&lt;table&gt;
+  &lt;thead&gt;&lt;tr&gt;&lt;th&gt;Room Number&lt;/th&gt;&lt;th&gt;Current Status&lt;/th&gt;&lt;th&gt;Market Value Status&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+  &lt;tbody&gt;
+    <span class="c1">@foreach</span> (<span class="c1">var</span> room <span class="c1">in</span> Model.Rooms)
+    {
+      <span class="c1">var</span> marketValue = Model.BasePrice * <span class="c2">1.1m</span>;
+      <span class="c1">var</span> valueStatus = marketValue &gt; <span class="c2">2_000_000m</span> ? <span class="c2">"Premium Room"</span> : <span class="c2">"Standard Room"</span>;
+      &lt;tr&gt;
+        &lt;td id=<span class="c2">"td_@(room.RoomNumber)_@(room.RoomId)"</span>&gt;<span class="c1">@</span>room.RoomNumber&lt;/td&gt;
+        &lt;td id=<span class="c2">"td_@(room.Status)_@(room.RoomId)"</span>&gt;<span class="c1">@</span>room.Status&lt;/td&gt;
+        &lt;td id=<span class="c2">"td_value_@(room.RoomId)"</span>&gt;<span class="c1">@</span>valueStatus&lt;/td&gt;
+      &lt;/tr&gt;
+    }
+  &lt;/tbody&gt;
+&lt;/table&gt;</pre>
+
+      <p><strong>Bước 7 — Test:</strong></p>
+      <ol class="steps">
+        <li>
+          <h4>Chạy Q1 (hoặc GivenAPIs) đúng port khớp <code class="inline">GivenAPIBaseUrl</code></h4>
+          <p>Vd port 5100 nếu appsettings.json Q2 ghi <code class="inline">"http://localhost:5100"</code>.</p>
+        </li>
+        <li>
+          <h4>Chạy Q2, vào <code class="inline">/RoomType</code></h4>
+          <p>Kiểm tra dropdown, bảng dữ liệu, click "Analyze Type" chuyển đúng sang <code class="inline">/RoomType/Analyze/{id}</code>.</p>
+        </li>
+        <li>
+          <h4>Mở DevTools → Inspect từng phần tử</h4>
+          <p>Đối chiếu đúng id với bảng "Summary of HTML Elements ID" trong đề — tool chấm tự động dò theo id chính xác.</p>
+        </li>
+      </ol>
+
+      <div class="callout warn">
+        <div class="mark">!</div>
+        <div class="body">
+          <p><strong>Cách gọi URL tuỳ theo đề đưa gì:</strong> ví dụ trên dùng <code class="inline">_baseUrl + "/api/..."</code> (tự nối chuỗi) vì có đề yêu cầu <em>"explicit string concatenation"</em>. Nếu đề thi thật của bạn kèm sẵn <code class="inline">Utilities.cs</code> với hàm <code class="inline">GetAbsoluteUrl()</code>, hãy dùng hàm đó thay vì tự nối — luôn ưu tiên đúng theo file mẫu/yêu cầu đề đưa ra.</p>
+        </div>
+      </div>
+    </section>
+
     <section class="block" id="checklist">
-      <h2><span class="toc-num">09</span>Checklist ôn tập trước khi thi</h2>
+      <h2><span class="toc-num">10</span>Checklist ôn tập trước khi thi</h2>
       <ul class="checklist">
         <li><input type="checkbox" /> Viết được Controller API trả JSON đúng status code (200/201/204/400/404) không cần tra cứu</li>
         <li><input type="checkbox" /> Phân biệt được N-N thuần và N-N có dữ liệu phụ chỉ bằng cách nhìn bảng trung gian</li>
