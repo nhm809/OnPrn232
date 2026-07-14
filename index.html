@@ -546,7 +546,16 @@
 
     <section class="block" id="linq">
       <h2><span class="toc-num">03</span>LINQ cheat sheet <span class="tag must">Bắt buộc</span></h2>
-      <p class="subtitle">7 pattern này phủ gần hết mọi API kiểu "danh sách + lọc + tính toán".</p>
+      <p class="subtitle">Các pattern LINQ hay dùng nhất trong đề thi kiểu "danh sách + lọc + tính toán". Thuộc phần này gần như thay thế được việc tra cứu lúc thi.</p>
+
+      <h3 class="sub">Include / ThenInclude — join quan hệ nhiều cấp</h3>
+      <pre class="code"><span class="c1">var</span> rooms = <span class="c1">await</span> _context.Rooms
+    .Include(r =&gt; r.RoomType!)
+        .ThenInclude(rt =&gt; rt.RoomTypeServices)
+            .ThenInclude(rts =&gt; rts.Service)
+    .Include(r =&gt; r.BookingDetails)
+    .ToListAsync();</pre>
+      <p><code class="inline">Include</code> = LEFT JOIN trong SQL. Không có <code class="inline">Include</code>, navigation property sẽ rỗng (<code class="inline">Count == 0</code>) chứ không phải <code class="inline">null</code> hay lỗi — dễ gây mất dữ liệu âm thầm nếu quên. <code class="inline">ThenInclude</code> dùng khi cần đi tiếp sang cấp quan hệ tiếp theo (quan hệ của quan hệ).</p>
 
       <h3 class="sub">Lọc động theo tham số tuỳ chọn</h3>
       <pre class="code"><span class="c1">var</span> query = _context.Rooms.AsQueryable();
@@ -555,10 +564,59 @@
 <span class="c1">if</span> (minPrice.HasValue)
     query = query.Where(r =&gt; r.BasePrice &gt;= minPrice.Value);
 <span class="c1">var</span> result = <span class="c1">await</span> query.ToListAsync();</pre>
+      <p>Xây <code class="inline">query</code> dần từng điều kiện — mỗi lần <code class="inline">.Where()</code> không thực thi ngay (deferred execution), chỉ khi <code class="inline">.ToListAsync()</code> mới thật sự chạy SQL. Nhờ vậy lọc theo tham số optional rất gọn, không cần viết nhiều nhánh <code class="inline">if/else</code> lồng nhau.</p>
 
-      <h3 class="sub">Đếm / Tổng trên navigation property</h3>
+      <h3 class="sub">Tìm kiếm theo chuỗi con (Contains)</h3>
+      <pre class="code"><span class="c1">if</span> (!<span class="c1">string</span>.IsNullOrWhiteSpace(keyword))
+    query = query.Where(r =&gt; r.TypeName.Contains(keyword));
+
+<span class="cm">// Không phân biệt hoa/thường (SQL Server mặc định collation đã case-insensitive,</span>
+<span class="cm">// nhưng viết tường minh cho chắc khi cần):</span>
+query = query.Where(r =&gt; r.TypeName.ToLower().Contains(keyword.ToLower()));</pre>
+
+      <h3 class="sub">Lọc theo danh sách giá trị (IN)</h3>
+      <pre class="code"><span class="c1">var</span> statuses = <span class="c1">new</span>[] { <span class="c2">"Available"</span>, <span class="c2">"Reserved"</span> };
+query = query.Where(r =&gt; statuses.Contains(r.Status));
+<span class="cm">// dịch sang SQL: WHERE Status IN ('Available', 'Reserved')</span></pre>
+
+      <h3 class="sub">Sắp xếp — OrderBy / OrderByDescending / ThenBy</h3>
+      <pre class="code">query.OrderBy(x =&gt; x.BasePrice)                          <span class="cm">// tăng dần</span>
+query.OrderByDescending(x =&gt; x.BasePrice)                <span class="cm">// giảm dần</span>
+query.OrderBy(x =&gt; x.TypeName).ThenBy(x =&gt; x.BasePrice)  <span class="cm">// sắp xếp nhiều cấp</span></pre>
+
+      <h3 class="sub">Đếm / Tổng / Trung bình / Min / Max trên navigation property</h3>
       <pre class="code">ServiceCount = rt.Services.Count                          <span class="cm">// đếm N-N</span>
-TotalNights  = r.BookingDetails.Sum(bd =&gt; bd.NightCount)  <span class="cm">// tổng 1-N</span></pre>
+TotalNights  = r.BookingDetails.Sum(bd =&gt; bd.NightCount)  <span class="cm">// tổng 1-N</span>
+AvgPrice     = rt.Rooms.Average(x =&gt; x.BasePrice)         <span class="cm">// trung bình</span>
+MaxPrice     = rt.Rooms.Max(x =&gt; x.BasePrice)             <span class="cm">// lớn nhất</span>
+MinPrice     = rt.Rooms.Min(x =&gt; x.BasePrice)             <span class="cm">// nhỏ nhất</span></pre>
+      <div class="callout warn">
+        <div class="mark">!</div>
+        <div class="body">
+          <p><strong>Nếu quan hệ rỗng, <code class="inline">Average/Max/Min</code> ném exception</strong> (<code class="inline">InvalidOperationException: Sequence contains no elements</code>), khác với <code class="inline">Sum/Count</code> luôn trả về 0 an toàn. Kiểm tra <code class="inline">.Any()</code> trước hoặc dùng try/catch nếu quan hệ có thể rỗng.</p>
+        </div>
+      </div>
+
+      <h3 class="sub">Kiểm tra tồn tại — Any / All</h3>
+      <pre class="code"><span class="c1">bool</span> exists = <span class="c1">await</span> _context.Rooms.AnyAsync(r =&gt; r.RoomNumber == dto.RoomNumber);
+
+<span class="cm">// Any trên quan hệ N-N — lọc RoomType có chứa 1 Service cụ thể</span>
+query = query.Where(rt =&gt; rt.RoomTypeServices.Any(rts =&gt; rts.ServiceId == serviceId));
+
+<span class="cm">// All — mọi phần tử đều thoả điều kiện (ít dùng hơn Any)</span>
+<span class="c1">bool</span> allAvailable = room.BookingDetails.All(bd =&gt; bd.CheckOutDate &lt; DateTime.Now);</pre>
+
+      <h3 class="sub">First vs FirstOrDefault vs Single vs SingleOrDefault</h3>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Method</th><th>Không tìm thấy</th><th>Tìm thấy &gt; 1</th><th>Khi nào dùng</th></tr>
+          <tr><td><code class="inline">First()</code></td><td>Ném lỗi</td><td>Lấy phần tử đầu</td><td>Chắc chắn có ít nhất 1</td></tr>
+          <tr><td><code class="inline">FirstOrDefault()</code></td><td>Trả <code class="inline">null</code></td><td>Lấy phần tử đầu</td><td>Có thể không tồn tại (hay dùng nhất)</td></tr>
+          <tr><td><code class="inline">Single()</code></td><td>Ném lỗi</td><td>Ném lỗi</td><td>Chắc chắn đúng 1 (vd theo khoá chính)</td></tr>
+          <tr><td><code class="inline">SingleOrDefault()</code></td><td>Trả <code class="inline">null</code></td><td>Ném lỗi</td><td>0 hoặc 1, không bao giờ &gt;1</td></tr>
+        </table>
+      </div>
+      <p>Trong bài thi, <code class="inline">FirstOrDefault()</code> an toàn nhất khi không chắc dữ liệu có tồn tại — nhớ kiểm tra <code class="inline">null</code> sau đó hoặc dùng <code class="inline">??</code> để gán giá trị mặc định.</p>
 
       <h3 class="sub">Lấy bản ghi "mới nhất" theo 1 mốc thời gian</h3>
       <pre class="code">CurrentGuest = r.BookingDetails
@@ -566,14 +624,28 @@ TotalNights  = r.BookingDetails.Sum(bd =&gt; bd.NightCount)  <span class="cm">//
     .Select(bd =&gt; bd.Booking!.Guest!.FullName)
     .FirstOrDefault() ?? <span class="c2">"No Guest"</span>;</pre>
 
-      <h3 class="sub">Kiểm tra tồn tại / trùng lặp</h3>
-      <pre class="code"><span class="c1">bool</span> exists = <span class="c1">await</span> _context.Rooms.AnyAsync(r =&gt; r.RoomNumber == dto.RoomNumber);</pre>
+      <h3 class="sub">Distinct — loại bỏ trùng lặp</h3>
+      <pre class="code"><span class="c1">var</span> typeNames = <span class="c1">await</span> _context.RoomTypes
+    .Select(rt =&gt; rt.TypeName)
+    .Distinct()
+    .ToListAsync();</pre>
 
-      <h3 class="sub">Group + tính tổng theo nhóm</h3>
+      <h3 class="sub">Group + tính tổng theo nhóm (có thể nhiều aggregate cùng lúc)</h3>
       <pre class="code"><span class="c1">var</span> grouped = <span class="c1">await</span> _context.BookingDetails
     .GroupBy(bd =&gt; bd.RoomId)
-    .Select(g =&gt; <span class="c1">new</span> { RoomId = g.Key, TotalNights = g.Sum(x =&gt; x.NightCount) })
+    .Select(g =&gt; <span class="c1">new</span>
+    {
+        RoomId = g.Key,
+        TotalNights = g.Sum(x =&gt; x.NightCount),
+        BookingCount = g.Count(),
+        AvgNights = g.Average(x =&gt; x.NightCount)
+    })
     .ToListAsync();</pre>
+
+      <h3 class="sub">Lấy danh sách chuỗi từ quan hệ N-N (ép về List&lt;string&gt;)</h3>
+      <pre class="code">ServiceList = rt.RoomTypeServices
+    .Select(rts =&gt; rts.Service!.ServiceName)
+    .ToList()</pre>
 
       <h3 class="sub">Chiếu (Select) thẳng sang DTO — nên dùng khi có thể</h3>
       <pre class="code"><span class="c1">var</span> dto = <span class="c1">await</span> _context.RoomTypes
@@ -587,6 +659,21 @@ TotalNights  = r.BookingDetails.Sum(bd =&gt; bd.NightCount)  <span class="cm">//
 
       <h3 class="sub">Phân trang</h3>
       <pre class="code"><span class="c1">var</span> paged = <span class="c1">await</span> query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();</pre>
+
+      <h3 class="sub">Composite key &amp; Unique index — cấu hình trong DbContext</h3>
+      <pre class="code">modelBuilder.Entity&lt;BookingDetail&gt;()
+    .HasKey(bd =&gt; <span class="c1">new</span> { bd.BookingId, bd.RoomId });    <span class="cm">// khoá phức hợp</span>
+
+modelBuilder.Entity&lt;Room&gt;()
+    .HasIndex(r =&gt; r.RoomNumber)
+    .IsUnique();                                        <span class="cm">// không được trùng</span></pre>
+
+      <div class="callout ok">
+        <div class="mark">✓</div>
+        <div class="body">
+          <p><strong>Nguyên tắc chung:</strong> mọi thứ dịch được sang SQL (Where, Select, OrderBy, GroupBy, Sum/Count/Average trên cột) thì cứ để EF Core tự dịch — nhanh và ít tốn RAM. Chỉ khi logic quá phức tạp (nhiều navigation lồng nhau, string formatting phức tạp) mới <code class="inline">ToListAsync()</code> trước rồi xử lý tiếp bằng LINQ to Objects trên memory.</p>
+        </div>
+      </div>
     </section>
 
     <section class="block" id="mvc">
