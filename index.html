@@ -829,15 +829,66 @@ modelBuilder.Entity&lt;Room&gt;()
       </div>
       <p>Pattern mặc định: <code class="inline">{controller=Home}/{action=Index}/{id?}</code> — đã setup sẵn trong <code class="inline">Program.cs</code>.</p>
 
-      <p><strong>Các kiểu return phổ biến:</strong></p>
+      <h3 class="sub">Các dạng return trong Controller</h3>
+      <p>Chia làm 2 nhóm — cái dùng chung cho cả Q1 (API) và Q2 (MVC), và cái chỉ Q2 mới có.</p>
+
+      <p><strong>Nhóm 1 — dùng chung, kế thừa từ <code class="inline">ControllerBase</code>:</strong></p>
       <div class="table-wrap">
         <table>
-          <tr><th>Lệnh</th><th>Làm gì</th><th>Khi nào dùng</th></tr>
-          <tr><td><code class="inline">return View(model);</code></td><td>Render file .cshtml cùng tên action</td><td>Hiển thị trang HTML</td></tr>
-          <tr><td><code class="inline">return View("TenView", model);</code></td><td>Render file .cshtml tên khác</td><td>Dùng view khác với tên action</td></tr>
-          <tr><td><code class="inline">return RedirectToAction("Index");</code></td><td>Redirect về action khác</td><td>Sau khi POST (delete, create)</td></tr>
+          <tr><th>Method</th><th>Status</th><th>Khi dùng</th></tr>
+          <tr><td><code class="inline">Ok(data)</code> / <code class="inline">Ok()</code></td><td>200</td><td>Trả dữ liệu thành công</td></tr>
+          <tr><td><code class="inline">StatusCode(code, obj)</code></td><td>tuỳ chọn</td><td>Trả status code bất kỳ</td></tr>
+          <tr><td><code class="inline">NoContent()</code></td><td>204</td><td>Xoá/cập nhật xong, không có body</td></tr>
+          <tr><td><code class="inline">BadRequest(obj)</code></td><td>400</td><td>Input sai / vi phạm rule</td></tr>
+          <tr><td><code class="inline">NotFound(obj)</code></td><td>404</td><td>Không tìm thấy</td></tr>
+          <tr><td><code class="inline">Unauthorized()</code> / <code class="inline">Forbid()</code></td><td>401/403</td><td>Đề không có auth thì không cần</td></tr>
+          <tr><td><code class="inline">Conflict(obj)</code></td><td>409</td><td>Hiếm dùng — đề này thường dùng 400 thay vì 409</td></tr>
         </table>
       </div>
+
+      <p><strong>Nhóm 2 — chỉ có ở <code class="inline">Controller</code> (Q2/MVC), không có ở <code class="inline">ControllerBase</code>:</strong></p>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Method</th><th>Làm gì</th></tr>
+          <tr><td><code class="inline">View()</code></td><td>Render file .cshtml cùng tên action, không có Model</td></tr>
+          <tr><td><code class="inline">View(model)</code></td><td>Render file .cshtml cùng tên action, có Model</td></tr>
+          <tr><td><code class="inline">View("TenKhac", model)</code></td><td>Render file .cshtml tên khác với tên action</td></tr>
+          <tr><td><code class="inline">PartialView(model)</code></td><td>Render 1 phần HTML nhỏ, không kèm Layout (ít gặp trong đề cơ bản)</td></tr>
+          <tr><td><code class="inline">RedirectToAction("Index")</code></td><td>Redirect sang action khác — dùng sau khi POST thành công</td></tr>
+          <tr><td><code class="inline">Redirect(url)</code></td><td>Redirect tới URL tuyệt đối bất kỳ</td></tr>
+          <tr><td><code class="inline">Json(obj)</code></td><td>Trả JSON thay vì HTML — dùng khi Q2 phản hồi cho gọi AJAX từ JS (ít gặp trong đề chuẩn)</td></tr>
+        </table>
+      </div>
+
+      <p><strong>Khai báo kiểu return của method (chữ ký hàm, khác với giá trị trả về):</strong></p>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Khai báo</th><th>Ý nghĩa</th></tr>
+          <tr><td><code class="inline">IActionResult</code></td><td>Linh hoạt nhất — 1 method có thể return nhiều loại khác nhau tuỳ nhánh if</td></tr>
+          <tr><td><code class="inline">Task&lt;IActionResult&gt;</code></td><td>Giống trên, dùng khi có async/await — 99% trường hợp trong đề</td></tr>
+          <tr><td><code class="inline">ActionResult&lt;T&gt;</code></td><td>Chỉ dùng ở API — cho phép <code class="inline">return room;</code> (tự thành Ok(room)) hoặc <code class="inline">return NotFound();</code> cùng 1 chỗ</td></tr>
+          <tr><td><code class="inline">ViewResult</code></td><td>Hẹp hơn, chỉ khi chắc chắn action luôn trả View, không bao giờ có nhánh lỗi — hiếm dùng vì kém linh hoạt</td></tr>
+        </table>
+      </div>
+
+      <p><strong>Ví dụ thực tế — 1 action Q2 dùng nhiều dạng return khác nhau:</strong></p>
+      <pre class="code">[HttpPost]
+<span class="c1">public async</span> Task&lt;IActionResult&gt; Create(CreateRoomVm vm)
+{
+    <span class="c1">if</span> (!ModelState.IsValid)
+        <span class="c1">return</span> View(vm);                        <span class="cm">// ← View(model): hiển thị lại form kèm lỗi</span>
+
+    <span class="c1">var</span> response = <span class="c1">await</span> _httpClient.PostAsJsonAsync(url, vm);
+
+    <span class="c1">if</span> (!response.IsSuccessStatusCode)
+    {
+        ViewBag.Error = <span class="c1">await</span> response.Content.ReadAsStringAsync();
+        <span class="c1">return</span> View(vm);                          <span class="cm">// ← View(model) lần nữa</span>
+    }
+
+    <span class="c1">return</span> RedirectToAction(<span class="c2">"Index"</span>);             <span class="cm">// ← Redirect sang action khác</span>
+}</pre>
+      <p>Cùng 1 method, 3 nhánh, 2 dạng return khác nhau (<code class="inline">View()</code> và <code class="inline">RedirectToAction()</code>) — đây là lý do <code class="inline">IActionResult</code>/<code class="inline">Task&lt;IActionResult&gt;</code> luôn là lựa chọn đúng cho chữ ký hàm, vì không dạng return type cụ thể nào (như <code class="inline">ViewResult</code>) đủ linh hoạt để cover cả 2 trường hợp.</p>
 
       <p><strong>Nhận tham số từ URL/form:</strong></p>
       <pre class="code"><span class="cm">// Từ URL: /RoomType/Delete/5 → id = 5</span>
