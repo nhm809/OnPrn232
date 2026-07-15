@@ -1308,6 +1308,55 @@ ViewBag.Error = error;
     <span class="c1">return</span> NoContent();                     <span class="cm">// 204</span>
 }</pre>
 
+      <h3 class="sub">Ví dụ body response cụ thể — khớp với code ở trên</h3>
+
+      <p><strong>200 OK</strong> — danh sách (<code class="inline">GET /api/roomtypes</code>):</p>
+      <pre class="code">[
+  {
+    <span class="c2">"roomTypeId"</span>: <span class="c2">1</span>,
+    <span class="c2">"typeName"</span>: <span class="c2">"Deluxe"</span>,
+    <span class="c2">"basePrice"</span>: <span class="c2">1200000.00</span>,
+    <span class="c2">"serviceCount"</span>: <span class="c2">3</span>
+  },
+  {
+    <span class="c2">"roomTypeId"</span>: <span class="c2">2</span>,
+    <span class="c2">"typeName"</span>: <span class="c2">"Standard"</span>,
+    <span class="c2">"basePrice"</span>: <span class="c2">500000.00</span>,
+    <span class="c2">"serviceCount"</span>: <span class="c2">1</span>
+  }
+]</pre>
+
+      <p><strong>200 OK</strong> — chi tiết 1 bản ghi (<code class="inline">GET /api/roomtypes/1</code>):</p>
+      <pre class="code">{
+  <span class="c2">"roomTypeId"</span>: <span class="c2">1</span>,
+  <span class="c2">"typeName"</span>: <span class="c2">"Deluxe"</span>,
+  <span class="c2">"basePrice"</span>: <span class="c2">1200000.00</span>,
+  <span class="c2">"services"</span>: [
+    { <span class="c2">"serviceId"</span>: <span class="c2">1</span>, <span class="c2">"serviceName"</span>: <span class="c2">"Breakfast"</span> },
+    { <span class="c2">"serviceId"</span>: <span class="c2">2</span>, <span class="c2">"serviceName"</span>: <span class="c2">"Spa"</span> }
+  ],
+  <span class="c2">"rooms"</span>: [
+    { <span class="c2">"roomId"</span>: <span class="c2">5</span>, <span class="c2">"roomNumber"</span>: <span class="c2">"301"</span>, <span class="c2">"status"</span>: <span class="c2">"Available"</span> }
+  ]
+}</pre>
+
+      <p><strong>201 Created</strong> — trả thẳng Entity vừa tạo, navigation property tự <code class="inline">null</code>/<code class="inline">[]</code> vì chưa <code class="inline">Include</code>:</p>
+      <pre class="code">{
+  <span class="c2">"roomId"</span>: <span class="c2">10</span>,
+  <span class="c2">"roomNumber"</span>: <span class="c2">"405"</span>,
+  <span class="c2">"status"</span>: <span class="c2">"Available"</span>,
+  <span class="c2">"roomTypeId"</span>: <span class="c2">1</span>,
+  <span class="c2">"roomType"</span>: <span class="c1">null</span>,
+  <span class="c2">"bookingDetails"</span>: []
+}</pre>
+
+      <p><strong>204 No Content</strong> — <code class="inline">DELETE</code> thành công: <strong>không có body</strong>, kể cả <code class="inline">{}</code> cũng không có.</p>
+
+      <p><strong>400 Bad Request</strong> / <strong>404 Not Found</strong> — <code class="inline">BadRequest(message)</code>/<code class="inline">NotFound(message)</code> với <code class="inline">message</code> là <code class="inline">string</code> sẽ tự serialize thành JSON string trần:</p>
+      <pre class="code"><span class="c2">"Room number already exists"</span>      <span class="cm">// 400</span>
+<span class="c2">"Room 999 was not found"</span>          <span class="cm">// 404</span></pre>
+      <p>Muốn dạng object có field <code class="inline">error</code> rõ ràng hơn thì tự bọc: <code class="inline">BadRequest(new { error = message })</code>.</p>
+
       <h3 class="sub">Hoặc throw exception, để Filter tự convert (gọn hơn)</h3>
       <p>Base template đã có sẵn <code class="inline">ApiExceptionFilter</code> — Service chỉ cần <code class="inline">throw</code>, Controller không cần <code class="inline">if/return</code> thủ công:</p>
       <pre class="code"><span class="c1">throw new</span> NotFoundException(<span class="c2">$"Room {roomId} was not found"</span>);      <span class="cm">// filter tự convert → 404</span>
